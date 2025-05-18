@@ -47,7 +47,7 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
 
   const [currentWebViewPath, setCurrentWebViewPath] = useState<string>(initialPath);
   const [iframeSrc, setIframeSrc] = useState<string>(() => buildUrl(initialPath));
-  const [isLoading, setIsLoading] = useState(true); // True for initial load and subsequent loads
+  const [isLoading, setIsLoading] = useState(true); 
 
   useEffect(() => {
     const newSrc = buildUrl(initialPath);
@@ -87,24 +87,16 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
         const iframeLocation = iframeRef.current.contentWindow.location;
         let iframePathname = iframeLocation.pathname;
         if (iframeLocation.hostname.endsWith('faylit.com') || iframeLocation.hostname === 'faylit.com') {
-          // Remove leading slash if present, unless it's the only character
           let path = iframePathname.startsWith('/') ? iframePathname.substring(1) : iframePathname;
-          
-          // Handle root path correctly
           if (iframePathname === '/') {
             path = '';
           }
           setCurrentWebViewPath(path);
         } else {
-          // If the iframe has navigated to a different domain, we might not be able to read the path
-          // or we might want to reset the app's path notion.
-          // For now, we'll assume it might be an external link and keep current app path or reset.
           console.warn('Navigated to external domain:', iframeLocation.origin);
         }
-
       } catch (error) {
         console.warn('FaylitFrame: Could not update nav state from iframe due to cross-origin restrictions or other error.', error);
-        // Potentially reset currentWebViewPath or handle as an external navigation
       }
     }
   }, [setCurrentWebViewPath]); 
@@ -113,10 +105,9 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
     const iframe = iframeRef.current;
     if (iframe) {
       const handleLoad = () => {
-        // A short delay can help ensure any client-side routing in iframe completes
         setTimeout(() => {
           updateNavState();
-          if (isFirstLoad) { // Only set isFirstLoad to false after initial iframe load completes
+          if (isFirstLoad) { 
             setIsFirstLoad(false);
           }
         }, 100); 
@@ -126,7 +117,7 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
         iframe.removeEventListener('load', handleLoad);
       };
     }
-  }, [updateNavState, isFirstLoad]); // isFirstLoad added
+  }, [updateNavState, isFirstLoad]); 
 
   useEffect(() => {
     if (iframeRef.current && iframeRef.current.src !== iframeSrc) {
@@ -134,13 +125,12 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
     }
   }, [iframeSrc]);
 
-  // Timer for the initial loading screen (logo screen)
   useEffect(() => {
     let timer: NodeJS.Timeout;
-    if (isLoading && isFirstLoad) { // Only apply 2s timeout to the very first logo screen
+    if (isLoading && isFirstLoad) { 
       timer = setTimeout(() => {
-        setIsLoading(false); // Hide loading screen
-        setIsFirstLoad(false); // Mark first load as done
+        setIsLoading(false); 
+        setIsFirstLoad(false); 
       }, 2000);
     }
     return () => {
@@ -150,20 +140,19 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
     };
   }, [isLoading, isFirstLoad]);
 
-
-  // Request notification permission and subscribe
   useEffect(() => {
     if (!isFirstLoad && !permissionRequested && typeof window !== 'undefined' && 'Notification' in window && 'serviceWorker' in navigator && 'PushManager' in window) {
       const registerServiceWorkerAndSubscribe = async () => {
         try {
+          console.log('Attempting to register Service Worker...');
           const swRegistration = await navigator.serviceWorker.register('/sw.js');
           console.log('Service Worker registered:', swRegistration);
           
-          // It's good practice to wait for the SW to be active
           await navigator.serviceWorker.ready;
+          console.log('Service Worker active and ready.');
 
           const permission = await Notification.requestPermission();
-          setPermissionRequested(true); // Mark as requested regardless of outcome for this session
+          setPermissionRequested(true); 
 
           if (permission === 'granted') {
             toast({
@@ -172,43 +161,63 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
             });
 
             const applicationServerKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+            console.log('Attempting to subscribe with VAPID public key:', applicationServerKey);
+
             if (!applicationServerKey) {
-              console.error('VAPID public key not found. Set NEXT_PUBLIC_VAPID_PUBLIC_KEY environment variable.');
+              console.error('VAPID public key not found. Ensure NEXT_PUBLIC_VAPID_PUBLIC_KEY is set in .env.local, the server was restarted, and the key is correctly prefixed for client-side access.');
               toast({
-                title: "Bildirim Hatası",
-                description: "Bildirim ayarları yapılandırılamadı (anahtar eksik).",
+                title: "Bildirim Yapılandırma Hatası",
+                description: "VAPID public key bulunamadı. Lütfen yönetici ile iletişime geçin.",
                 variant: "destructive",
               });
               return;
             }
 
+            const convertedVapidKey = urlBase64ToUint8Array(applicationServerKey);
+            console.log('Converted VAPID key (first 5 bytes):', convertedVapidKey.slice(0, 5));
+            console.log('ServiceWorkerRegistration object:', swRegistration);
+            console.log('PushManager object:', swRegistration.pushManager);
+
             const subscription = await swRegistration.pushManager.subscribe({
               userVisibleOnly: true,
-              applicationServerKey: urlBase64ToUint8Array(applicationServerKey),
+              applicationServerKey: convertedVapidKey,
             });
             console.log('User is subscribed:', subscription);
 
-            await fetch('/api/subscribe', {
+            const response = await fetch('/api/subscribe', {
               method: 'POST',
               body: JSON.stringify(subscription),
               headers: {
                 'Content-Type': 'application/json',
               },
             });
-            console.log('Subscription sent to server.');
+            if (!response.ok) {
+                const errorData = await response.json();
+                console.error('Failed to send subscription to server:', response.status, errorData);
+                toast({
+                    title: "Abonelik Gönderilemedi",
+                    description: `Sunucu aboneliği kaydedemedi: ${errorData.message || response.statusText}`,
+                    variant: "destructive",
+                });
+            } else {
+                console.log('Subscription sent to server successfully.');
+            }
 
           } else if (permission === 'denied') {
-            console.log('Notification permission denied.');
+            console.log('Notification permission denied by user.');
             toast({
               title: "Bildirim İzinleri Reddedildi",
               description: "Bildirim almak isterseniz, tarayıcı ayarlarınızdan Faylit Store için izinleri daha sonra etkinleştirebilirsiniz.",
               variant: "destructive",
             });
           } else {
-            console.log('Notification permission prompt dismissed.');
+            console.log('Notification permission prompt dismissed by user.');
           }
         } catch (error: any) {
-          console.error('Service Worker registration or Push Subscription failed:', error);
+          console.error('Service Worker registration or Push Subscription failed dramatically:', error);
+          console.error('Error name:', error.name);
+          console.error('Error message:', error.message);
+          console.error('Error stack:', error.stack);
           toast({
             title: "Bildirim Hatası",
             description: `Bildirimler ayarlanamadı: ${error.message || 'Bilinmeyen bir hata oluştu.'}`,
@@ -220,8 +229,7 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
       registerServiceWorkerAndSubscribe();
 
     } else if (!isFirstLoad && !permissionRequested) {
-        // Handle cases where SW or PushManager not supported, or permission already handled by other means
-        setPermissionRequested(true); // Mark as "handled" for this session to prevent re-prompting
+        setPermissionRequested(true); 
         if (typeof window !== 'undefined') {
             if (!('Notification' in window)) console.log('Notifications not supported by this browser.');
             else if (!('serviceWorker' in navigator)) console.log('Service Worker not supported by this browser.');
@@ -235,10 +243,10 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
 
   return (
     <div className="flex flex-col h-full bg-background text-foreground overflow-hidden">
-      <main className={`flex-grow relative ${isFirstLoad && isLoading ? 'pb-0' : 'pb-16'}`}> 
-        {isLoading && isFirstLoad && ( // Show logo only on very first load
+      <main className={`flex-grow relative pb-16`}> 
+        {isLoading && isFirstLoad && ( 
           <div 
-            className="absolute inset-0 flex items-center justify-center bg-white z-30" // Higher z-index
+            className="absolute inset-0 flex items-center justify-center bg-white z-30"
             aria-live="polite"
             aria-busy="true"
           >
