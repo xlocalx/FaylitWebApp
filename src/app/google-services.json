@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "267119245122",
+    "project_id": "faylit-store",
+    "storage_bucket": "faylit-store.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:267119245122:android:24a15f8353706332b13adb",
+        "android_client_info": {
+          "package_name": "com.faylit.webapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCnF4_7YP6L0xfFJ8RzS2wuVUrlnq5m5zc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
