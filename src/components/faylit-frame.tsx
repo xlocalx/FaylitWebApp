@@ -106,7 +106,7 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
 
   return (
     <div className="flex flex-col h-full bg-background text-foreground overflow-hidden">
-      <main className="flex-grow relative pb-16">
+      <main className={`flex-grow relative ${isLoading ? 'pb-0' : 'pb-16'}`}>
         {isLoading && (
           <div 
             className="absolute inset-0 flex items-center justify-center bg-white z-10"
@@ -131,7 +131,7 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
           loading="eager" 
         />
       </main>
-      <BottomNavigation onNavigate={handleNavigation} currentPath={currentWebViewPath} />
+      {!isLoading && <BottomNavigation onNavigate={handleNavigation} currentPath={currentWebViewPath} />}
     </div>
   );
 };
