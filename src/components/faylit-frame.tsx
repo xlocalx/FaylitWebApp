@@ -3,7 +3,6 @@
 
 import type { FC } from 'react';
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-// Removed Loader2 as it's replaced by an inline SVG
 import BottomNavigation from './bottom-navigation';
 
 interface FaylitFrameProps {
@@ -89,6 +88,20 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
       iframeRef.current.src = iframeSrc;
     }
   }, [iframeSrc]);
+
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (isLoading) {
+      timer = setTimeout(() => {
+        setIsLoading(false);
+      }, 2000);
+    }
+    return () => {
+      if (timer) {
+        clearTimeout(timer);
+      }
+    };
+  }, [isLoading]);
 
 
   return (
