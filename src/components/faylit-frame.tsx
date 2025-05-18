@@ -13,25 +13,20 @@ const BASE_URL = "https://faylit.com";
 
 const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
   const iframeRef = useRef<HTMLIFrameElement>(null);
-  
-  const buildUrl = useCallback((relativePath: string) => {
-    // relativePath is like "", "cart", "category/product", or "category/product?id=123"
-    // BASE_URL acts as the base if relativePath is relative.
-    const urlObject = new URL(relativePath, BASE_URL);
+  const [isFirstLoad, setIsFirstLoad] = useState(true); // Track if it's the very first load
 
+  const buildUrl = useCallback((relativePath: string) => {
+    const urlObject = new URL(relativePath, BASE_URL);
     const utmParameters = {
       utm_source: 'faylit_app',
       utm_medium: 'mobile_app',
       utm_campaign: 'app_traffic',
     };
-
-    // Append UTM parameters. .set() will add or overwrite, ensuring each UTM param appears once.
     for (const [key, value] of Object.entries(utmParameters)) {
       urlObject.searchParams.set(key, value);
     }
-
     return urlObject.toString();
-  }, []); // BASE_URL is a module-level const, so not needed in deps.
+  }, []);
 
   const [currentWebViewPath, setCurrentWebViewPath] = useState<string>(initialPath);
   const [iframeSrc, setIframeSrc] = useState<string>(() => buildUrl(initialPath));
@@ -41,6 +36,7 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
     const newSrc = buildUrl(initialPath);
     if (iframeRef.current && iframeRef.current.src !== newSrc) {
       setIsLoading(true);
+      // isFirstLoad remains true if this is part of the initial setup
       setIframeSrc(newSrc);
       setCurrentWebViewPath(initialPath);
     } else if (!iframeRef.current) { 
@@ -52,10 +48,10 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
   
   const handleNavigation = useCallback((path: string) => {
     const newUrl = buildUrl(path);
-    // Always update currentWebViewPath to the clean path from navigation action
     setCurrentWebViewPath(path); 
     if (iframeSrc !== newUrl) {
-      setIsLoading(true);
+      setIsLoading(true); // Subsequent loads will also set isLoading to true
+      // isFirstLoad will be false by now, so logo screen won't show
       setIframeSrc(newUrl);
     } else if (iframeRef.current?.contentWindow) {
       try { 
@@ -69,39 +65,33 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
   }, [iframeSrc, buildUrl, setCurrentWebViewPath]);
 
   const updateNavState = useCallback(() => {
-    setIsLoading(false); 
+    setIsLoading(false);
+    // If this was the first load, mark isFirstLoad as false
+    setIsFirstLoad(prevIsFirstLoad => prevIsFirstLoad ? false : prevIsFirstLoad);
+    
     if (iframeRef.current && iframeRef.current.contentWindow) {
       try {
         const iframeLocation = iframeRef.current.contentWindow.location;
-        // Get the pathname from the iframe, which does NOT include the query string or hash.
         const iframePathname = iframeLocation.pathname;
-        // Remove leading slash to match the format of `initialPath` and nav item paths
         let path = iframePathname.startsWith('/') ? iframePathname.substring(1) : iframePathname;
         
-        // Normalize for homepage consistency: if iframe is at root of BASE_URL, treat as "" path.
         if (iframeLocation.origin === BASE_URL && iframePathname === '/') {
           path = '';
         }
-        // This case handles if the app's initial path was homepage, and iframe navigates to '/', 
-        // ensures currentWebViewPath also becomes "" for consistency.
         else if (path === '/' && initialPath === '') {
             path = '';
         }
-
         setCurrentWebViewPath(path);
       } catch (error) {
-        // Cross-origin error or other issues accessing iframe location
         console.warn('FaylitFrame: Could not update nav state from iframe.', error);
       }
     }
-  }, [initialPath]); // BASE_URL is a const.
-
+  }, [initialPath, buildUrl]); // buildUrl added as it's used in initialPath comparison logic indirectly via setCurrentWebViewPath
 
   useEffect(() => {
     const iframe = iframeRef.current;
     if (iframe) {
       const handleLoad = () => {
-        // Delay slightly to allow potential redirects within the iframe to settle
         setTimeout(updateNavState, 100);
       };
       iframe.addEventListener('load', handleLoad);
@@ -111,18 +101,19 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
     }
   }, [updateNavState]);
 
-
   useEffect(() => {
     if (iframeRef.current && iframeRef.current.src !== iframeSrc) {
       iframeRef.current.src = iframeSrc;
     }
   }, [iframeSrc]);
 
+  // Timer specifically for the initial logo loading screen
   useEffect(() => {
     let timer: NodeJS.Timeout;
-    if (isLoading) {
+    if (isLoading && isFirstLoad) { // Only apply 2s timeout if it's the first load showing the logo
       timer = setTimeout(() => {
         setIsLoading(false);
+        setIsFirstLoad(false); // Mark first load as done
       }, 2000);
     }
     return () => {
@@ -130,13 +121,14 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
         clearTimeout(timer);
       }
     };
-  }, [isLoading]);
+  }, [isLoading, isFirstLoad]);
 
 
   return (
     <div className="flex flex-col h-full bg-background text-foreground overflow-hidden">
-      <main className={`flex-grow relative ${isLoading || !currentWebViewPath && currentWebViewPath !== '' ? 'pb-0' : 'pb-16'}`}>
-        {isLoading && (
+      <main className={`flex-grow relative ${isLoading ? 'pb-0' : 'pb-16'}`}>
+        {/* Show logo loading screen only on first launch */}
+        {isLoading && isFirstLoad && (
           <div 
             className="absolute inset-0 flex items-center justify-center bg-white z-10"
             aria-live="polite"
@@ -154,17 +146,17 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
           ref={iframeRef}
           src={iframeSrc} 
           title="Faylit Store Web View"
-          className="w-full h-full border-0"
+          className={`w-full h-full border-0 ${isLoading && isFirstLoad ? 'opacity-0' : 'opacity-100 transition-opacity duration-300'}`} // Hide iframe during initial logo load
           sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-downloads allow-modals allow-top-navigation-by-user-activation"
           allowFullScreen
           loading="eager" 
         />
       </main>
+      {/* Show bottom navigation only when not loading */}
       {!isLoading && <BottomNavigation onNavigate={handleNavigation} currentPath={currentWebViewPath} />}
     </div>
   );
 };
 
 export default FaylitFrame;
-
     
