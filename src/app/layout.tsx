@@ -15,8 +15,11 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Faylit Mağazası',
-  description: 'Faylit Mağazasını uygulama içinde sorunsuzca gezin.',
+  title: {
+    default: 'Faylit E-Mağaza - Sokak Modası, Giyim',
+    template: '%s | Faylit',
+  },
+  description: 'Faylit - Sokak Modası, Giyim. En trend sokak giyim ürünleri, aksesuarlar ve daha fazlasını Faylit E-Mağaza\'da keşfedin.',
   viewport: {
     width: 'device-width',
     initialScale: 1,
