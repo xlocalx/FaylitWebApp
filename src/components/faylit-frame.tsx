@@ -36,7 +36,6 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
     const newSrc = buildUrl(initialPath);
     if (iframeRef.current && iframeRef.current.src !== newSrc) {
       setIsLoading(true);
-      // isFirstLoad remains true if this is part of the initial setup
       setIframeSrc(newSrc);
       setCurrentWebViewPath(initialPath);
     } else if (!iframeRef.current) { 
@@ -50,8 +49,7 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
     const newUrl = buildUrl(path);
     setCurrentWebViewPath(path); 
     if (iframeSrc !== newUrl) {
-      setIsLoading(true); // Subsequent loads will also set isLoading to true
-      // isFirstLoad will be false by now, so logo screen won't show
+      setIsLoading(true); 
       setIframeSrc(newUrl);
     } else if (iframeRef.current?.contentWindow) {
       try { 
@@ -66,8 +64,9 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
 
   const updateNavState = useCallback(() => {
     setIsLoading(false);
-    // If this was the first load, mark isFirstLoad as false
-    setIsFirstLoad(prevIsFirstLoad => prevIsFirstLoad ? false : prevIsFirstLoad);
+    if (isFirstLoad) { // Only set isFirstLoad to false after the very first load completes
+      setIsFirstLoad(false);
+    }
     
     if (iframeRef.current && iframeRef.current.contentWindow) {
       try {
@@ -78,7 +77,7 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
         if (iframeLocation.origin === BASE_URL && iframePathname === '/') {
           path = '';
         }
-        else if (path === '/' && initialPath === '') {
+        else if (path === '/' && initialPath === '') { // Ensure homepage path is consistent
             path = '';
         }
         setCurrentWebViewPath(path);
@@ -86,13 +85,14 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
         console.warn('FaylitFrame: Could not update nav state from iframe.', error);
       }
     }
-  }, [initialPath, buildUrl]); // buildUrl added as it's used in initialPath comparison logic indirectly via setCurrentWebViewPath
+  }, [initialPath, isFirstLoad]); // Removed buildUrl, added isFirstLoad
 
   useEffect(() => {
     const iframe = iframeRef.current;
     if (iframe) {
       const handleLoad = () => {
-        setTimeout(updateNavState, 100);
+        // Delay slightly to allow any redirects to settle and get the final URL
+        setTimeout(updateNavState, 100); 
       };
       iframe.addEventListener('load', handleLoad);
       return () => {
@@ -112,7 +112,7 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
     let timer: NodeJS.Timeout;
     if (isLoading && isFirstLoad) { // Only apply 2s timeout if it's the first load showing the logo
       timer = setTimeout(() => {
-        setIsLoading(false);
+        setIsLoading(false); // Hide loading screen
         setIsFirstLoad(false); // Mark first load as done
       }, 2000);
     }
@@ -126,7 +126,7 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
 
   return (
     <div className="flex flex-col h-full bg-background text-foreground overflow-hidden">
-      <main className={`flex-grow relative ${isLoading ? 'pb-0' : 'pb-16'}`}>
+      <main className="flex-grow relative pb-16"> {/* Always apply pb-16 */}
         {/* Show logo loading screen only on first launch */}
         {isLoading && isFirstLoad && (
           <div 
@@ -152,8 +152,8 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
           loading="eager" 
         />
       </main>
-      {/* Show bottom navigation only when not loading */}
-      {!isLoading && <BottomNavigation onNavigate={handleNavigation} currentPath={currentWebViewPath} />}
+      {/* Bottom navigation is now always visible */}
+      <BottomNavigation onNavigate={handleNavigation} currentPath={currentWebViewPath} />
     </div>
   );
 };
