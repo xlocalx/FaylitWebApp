@@ -31,7 +31,7 @@ const BottomNavigation: FC<BottomNavigationProps> = ({ onNavigate, currentPath }
             key={item.label}
             variant="ghost"
             className={cn(
-              "flex flex-col items-center justify-center h-full w-1/3 rounded-none text-xs p-1",
+              "flex flex-col items-center justify-center h-full flex-1 rounded-none text-xs p-1", // Replaced w-1/3 with flex-1
               isActive ? "text-primary font-semibold" : "text-muted-foreground"
             )}
             onClick={() => onNavigate(item.path)}
