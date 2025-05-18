@@ -19,7 +19,10 @@ const navItems = [
 
 const BottomNavigation: FC<BottomNavigationProps> = ({ onNavigate, currentPath }) => {
   return (
-    <nav className="fixed bottom-0 left-0 right-0 h-16 bg-background border-t border-border shadow-md flex items-center justify-around z-20">
+    <nav className={cn(
+      "fixed bottom-0 left-0 right-0 h-16 border-t border-border shadow-md flex items-center justify-around z-20",
+      "bg-gradient-to-t from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900"
+    )}>
       {navItems.map((item) => {
         // Normalize currentPath for comparison (e.g., remove leading/trailing slashes)
         const normalizedCurrentPath = currentPath.replace(/^\/|\/$/g, '');
@@ -31,7 +34,7 @@ const BottomNavigation: FC<BottomNavigationProps> = ({ onNavigate, currentPath }
             key={item.label}
             variant="ghost"
             className={cn(
-              "flex flex-col items-center justify-center h-full flex-1 rounded-none text-xs p-1", // Replaced w-1/3 with flex-1
+              "flex flex-col items-center justify-center h-full flex-1 rounded-none text-xs p-1",
               isActive ? "text-primary font-semibold" : "text-muted-foreground"
             )}
             onClick={() => onNavigate(item.path)}
