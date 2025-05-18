@@ -3,7 +3,7 @@
 
 import type { FC } from 'react';
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Loader2 } from 'lucide-react';
+// Removed Loader2 as it's replaced by an inline SVG
 import BottomNavigation from './bottom-navigation';
 
 interface FaylitFrameProps {
@@ -44,10 +44,8 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
       setIframeSrc(newUrl);
       setCurrentWebViewPath(path);
     } else if (iframeRef.current?.contentWindow) {
-      // If it's the same URL, consider a reload, though Faylit might handle this internally
       try { 
-        iframeRef.current.contentWindow.location.href = newUrl; // Force navigation
-        // iframeRef.current.contentWindow.location.reload(); // Alternative: reload
+        iframeRef.current.contentWindow.location.href = newUrl; 
       } catch(e) { 
         if (iframeRef.current.src) iframeRef.current.src = newUrl; 
       }
@@ -59,11 +57,8 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
     if (iframeRef.current && iframeRef.current.contentWindow) {
       try {
         const iframeLocation = iframeRef.current.contentWindow.location.pathname;
-        // Remove leading slash and base URL part if necessary, 
-        // assuming faylit.com paths are relative to root
         let path = iframeLocation.startsWith('/') ? iframeLocation.substring(1) : iframeLocation;
         
-        // If on faylit.com/ (homepage), path might be empty or '/'
         if (path === '' && iframeRef.current.contentWindow.location.origin === BASE_URL && iframeRef.current.contentWindow.location.pathname === '/') {
             // explicitly set to empty string for homepage consistency
         } else if (path === '/' && initialPath === '') {
@@ -72,10 +67,7 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
 
         setCurrentWebViewPath(path);
       } catch (error) {
-        // Cross-origin error, cannot access iframe location.
-        // console.warn("Cannot access iframe location:", error);
-        // We might not be able to update currentWebViewPath accurately in this case.
-        // Keep the one set by handleNavigation or initialPath.
+        // Cross-origin error
       }
     }
   }, [initialPath]);
@@ -85,8 +77,6 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
     const iframe = iframeRef.current;
     if (iframe) {
       iframe.addEventListener('load', updateNavState);
-      // It might also be useful to listen to hash changes or other navigation events within the iframe if possible
-      // However, due to cross-origin restrictions, direct event listening inside iframe is limited.
       return () => {
         iframe.removeEventListener('load', updateNavState);
       };
@@ -103,7 +93,7 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
 
   return (
     <div className="flex flex-col h-full bg-background text-foreground overflow-hidden">
-      <main className="flex-grow relative pb-16"> {/* Added pb-16 for bottom nav space */}
+      <main className="flex-grow relative pb-16">
         {isLoading && (
           <div 
             className="absolute inset-0 flex items-center justify-center bg-background/60 z-10"
@@ -111,7 +101,12 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
             aria-live="polite"
             aria-busy="true"
           >
-            <Loader2 className="h-10 w-10 animate-spin text-primary" />
+            <div className="h-16 w-16" role="img" aria-label="Faylit Logo loading indicator">
+              <svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+                <rect width="512" height="512" rx="100" fill="white"/>
+                <path d="M160 128 H384 V192 H224 V256 H352 V320 H224 V384 H160 V128 Z" fill="black"/>
+              </svg>
+            </div>
           </div>
         )}
         <iframe
