@@ -1,3 +1,4 @@
+
 import FaylitFrame from '@/components/faylit-frame';
 import type { Metadata } from 'next';
 
@@ -9,12 +10,12 @@ interface DynamicPageProps {
 
 function generatePageTitle(pathSegments: string[]): string {
   if (!pathSegments || pathSegments.length === 0) {
-    return 'Faylit Store';
+    return 'Faylit Mağazası';
   }
   const titlePath = pathSegments
     .map(s => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase().replace(/-/g, ' '))
     .join(' | ');
-  return `Faylit Store - ${titlePath}`;
+  return `Faylit Mağazası - ${titlePath}`;
 }
 
 export async function generateMetadata({ params }: DynamicPageProps): Promise<Metadata> {
@@ -22,7 +23,7 @@ export async function generateMetadata({ params }: DynamicPageProps): Promise<Me
   const descriptionPath = params.slug.join('/');
   return {
     title,
-    description: `Browse ${descriptionPath || 'the homepage'} on Faylit Store.`,
+    description: `Faylit Mağazasında ${descriptionPath || 'anasayfayı'} gezin.`,
   };
 }
 
