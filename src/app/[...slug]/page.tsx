@@ -1,5 +1,5 @@
 
-import FaylitFrame from '@/components/faylit-frame.tsx';
+import FaylitFrame from '../../components/faylit-frame.tsx'; // Changed to relative path
 import type { Metadata } from 'next';
 
 interface DynamicPageProps {
@@ -23,7 +23,7 @@ export async function generateMetadata({ params }: DynamicPageProps): Promise<Me
   const descriptionPath = params.slug.join('/');
 
   return {
-    title: pageSpecificTitle, // This will be used by the template in layout.tsx
+    title: pageSpecificTitle,
     description: `Faylit E-Mağaza'da ${descriptionPath || 'en yeni sokak modası'} ürünlerini keşfedin. ${pageSpecificTitle} koleksiyonumuzu inceleyin.`,
   };
 }
