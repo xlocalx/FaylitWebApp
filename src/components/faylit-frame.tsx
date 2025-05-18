@@ -4,6 +4,7 @@
 import type { FC } from 'react';
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import BottomNavigation from './bottom-navigation';
+import { useToast } from '@/hooks/use-toast';
 
 interface FaylitFrameProps {
   initialPath?: string;
@@ -13,7 +14,9 @@ const BASE_URL = "https://faylit.com";
 
 const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
   const iframeRef = useRef<HTMLIFrameElement>(null);
-  const [isFirstLoad, setIsFirstLoad] = useState(true); // Track if it's the very first load
+  const [isFirstLoad, setIsFirstLoad] = useState(true);
+  const { toast } = useToast();
+  const [permissionRequested, setPermissionRequested] = useState(false);
 
   const buildUrl = useCallback((relativePath: string) => {
     const urlObject = new URL(relativePath, BASE_URL);
@@ -64,9 +67,7 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
 
   const updateNavState = useCallback(() => {
     setIsLoading(false);
-    if (isFirstLoad) { // Only set isFirstLoad to false after the very first load completes
-      setIsFirstLoad(false);
-    }
+    // Removed isFirstLoad update from here, handled by timer/direct load
     
     if (iframeRef.current && iframeRef.current.contentWindow) {
       try {
@@ -77,7 +78,7 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
         if (iframeLocation.origin === BASE_URL && iframePathname === '/') {
           path = '';
         }
-        else if (path === '/' && initialPath === '') { // Ensure homepage path is consistent
+        else if (path === '/' && initialPath === '') { 
             path = '';
         }
         setCurrentWebViewPath(path);
@@ -85,21 +86,27 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
         console.warn('FaylitFrame: Could not update nav state from iframe.', error);
       }
     }
-  }, [initialPath, isFirstLoad]); // Removed buildUrl, added isFirstLoad
+  }, [initialPath, setCurrentWebViewPath]); 
 
   useEffect(() => {
     const iframe = iframeRef.current;
     if (iframe) {
       const handleLoad = () => {
-        // Delay slightly to allow any redirects to settle and get the final URL
-        setTimeout(updateNavState, 100); 
+        setTimeout(() => {
+          updateNavState();
+          // If this is the first load completing, also mark isFirstLoad as false.
+          // This ensures the logo doesn't reappear if the iframe itself triggers a load event quickly.
+          if (isFirstLoad) {
+            setIsFirstLoad(false);
+          }
+        }, 100); 
       };
       iframe.addEventListener('load', handleLoad);
       return () => {
         iframe.removeEventListener('load', handleLoad);
       };
     }
-  }, [updateNavState]);
+  }, [updateNavState, isFirstLoad]);
 
   useEffect(() => {
     if (iframeRef.current && iframeRef.current.src !== iframeSrc) {
@@ -107,13 +114,12 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
     }
   }, [iframeSrc]);
 
-  // Timer specifically for the initial logo loading screen
   useEffect(() => {
     let timer: NodeJS.Timeout;
-    if (isLoading && isFirstLoad) { // Only apply 2s timeout if it's the first load showing the logo
+    if (isLoading && isFirstLoad) { 
       timer = setTimeout(() => {
-        setIsLoading(false); // Hide loading screen
-        setIsFirstLoad(false); // Mark first load as done
+        setIsLoading(false); 
+        setIsFirstLoad(false); 
       }, 2000);
     }
     return () => {
@@ -123,11 +129,51 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
     };
   }, [isLoading, isFirstLoad]);
 
+  useEffect(() => {
+    // Request notification permission after initial loading screen is done
+    if (!isFirstLoad && !permissionRequested) {
+      if (typeof window !== 'undefined' && 'Notification' in window) {
+        if (Notification.permission === 'default') {
+          Notification.requestPermission().then((permission) => {
+            setPermissionRequested(true); // Mark as requested for this session
+            if (permission === 'granted') {
+              console.log('Notification permission granted.');
+              toast({
+                title: "Bildirimler Etkinleştirildi",
+                description: "Faylit Store'dan en son güncellemeler ve özel teklifler hakkında bildirim alacaksınız.",
+              });
+              // TODO: Subscribe user and send subscription to backend
+            } else if (permission === 'denied') {
+              console.log('Notification permission denied.');
+              toast({
+                title: "Bildirim İzinleri Reddedildi",
+                description: "Bildirim almak isterseniz, tarayıcı ayarlarınızdan Faylit Store için izinleri daha sonra etkinleştirebilirsiniz.",
+                variant: "destructive",
+              });
+            } else {
+              console.log('Notification permission prompt dismissed.');
+            }
+          });
+        } else {
+          // Permission already granted or denied, or browser doesn't support
+          setPermissionRequested(true); // Mark as "handled" for this session
+          if(Notification.permission === 'granted') {
+            console.log('Notification permission was already granted.');
+          } else if (Notification.permission === 'denied') {
+            console.log('Notification permission was already denied.');
+          }
+        }
+      } else {
+        console.log('This browser does not support desktop notification or window is not defined.');
+        setPermissionRequested(true); // Mark as "handled" for this session
+      }
+    }
+  }, [isFirstLoad, permissionRequested, toast]);
+
 
   return (
     <div className="flex flex-col h-full bg-background text-foreground overflow-hidden">
-      <main className="flex-grow relative pb-16"> {/* Always apply pb-16 */}
-        {/* Show logo loading screen only on first launch */}
+      <main className="flex-grow relative pb-16"> 
         {isLoading && isFirstLoad && (
           <div 
             className="absolute inset-0 flex items-center justify-center bg-white z-10"
@@ -146,13 +192,12 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
           ref={iframeRef}
           src={iframeSrc} 
           title="Faylit Store Web View"
-          className={`w-full h-full border-0 ${isLoading && isFirstLoad ? 'opacity-0' : 'opacity-100 transition-opacity duration-300'}`} // Hide iframe during initial logo load
+          className={`w-full h-full border-0 ${isLoading && isFirstLoad ? 'opacity-0' : 'opacity-100 transition-opacity duration-300'}`}
           sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-downloads allow-modals allow-top-navigation-by-user-activation"
           allowFullScreen
           loading="eager" 
         />
       </main>
-      {/* Bottom navigation is now always visible */}
       <BottomNavigation onNavigate={handleNavigation} currentPath={currentWebViewPath} />
     </div>
   );
