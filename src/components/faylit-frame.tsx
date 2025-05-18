@@ -14,10 +14,24 @@ const BASE_URL = "https://faylit.com";
 const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   
-  const buildUrl = useCallback((path: string) => {
-    const cleanPath = path.replace(/^\//, ''); 
-    return `${BASE_URL}${cleanPath ? `/${cleanPath}` : ''}`;
-  }, []);
+  const buildUrl = useCallback((relativePath: string) => {
+    // relativePath is like "", "cart", "category/product", or "category/product?id=123"
+    // BASE_URL acts as the base if relativePath is relative.
+    const urlObject = new URL(relativePath, BASE_URL);
+
+    const utmParameters = {
+      utm_source: 'faylit_app',
+      utm_medium: 'mobile_app',
+      utm_campaign: 'app_traffic',
+    };
+
+    // Append UTM parameters. .set() will add or overwrite, ensuring each UTM param appears once.
+    for (const [key, value] of Object.entries(utmParameters)) {
+      urlObject.searchParams.set(key, value);
+    }
+
+    return urlObject.toString();
+  }, []); // BASE_URL is a module-level const, so not needed in deps.
 
   const [currentWebViewPath, setCurrentWebViewPath] = useState<string>(initialPath);
   const [iframeSrc, setIframeSrc] = useState<string>(() => buildUrl(initialPath));
@@ -38,46 +52,61 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
   
   const handleNavigation = useCallback((path: string) => {
     const newUrl = buildUrl(path);
+    // Always update currentWebViewPath to the clean path from navigation action
+    setCurrentWebViewPath(path); 
     if (iframeSrc !== newUrl) {
       setIsLoading(true);
       setIframeSrc(newUrl);
-      setCurrentWebViewPath(path);
     } else if (iframeRef.current?.contentWindow) {
       try { 
         iframeRef.current.contentWindow.location.href = newUrl; 
       } catch(e) { 
-        if (iframeRef.current.src) iframeRef.current.src = newUrl; 
+        if (iframeRef.current.src && iframeRef.current.src !== newUrl) {
+            iframeRef.current.src = newUrl;
+        }
       }
     }
-  }, [iframeSrc, buildUrl]);
+  }, [iframeSrc, buildUrl, setCurrentWebViewPath]);
 
   const updateNavState = useCallback(() => {
     setIsLoading(false); 
     if (iframeRef.current && iframeRef.current.contentWindow) {
       try {
-        const iframeLocation = iframeRef.current.contentWindow.location.pathname;
-        let path = iframeLocation.startsWith('/') ? iframeLocation.substring(1) : iframeLocation;
+        const iframeLocation = iframeRef.current.contentWindow.location;
+        // Get the pathname from the iframe, which does NOT include the query string or hash.
+        const iframePathname = iframeLocation.pathname;
+        // Remove leading slash to match the format of `initialPath` and nav item paths
+        let path = iframePathname.startsWith('/') ? iframePathname.substring(1) : iframePathname;
         
-        if (path === '' && iframeRef.current.contentWindow.location.origin === BASE_URL && iframeRef.current.contentWindow.location.pathname === '/') {
-            // explicitly set to empty string for homepage consistency
-        } else if (path === '/' && initialPath === '') {
-            // if initial path was homepage, treat '/' also as homepage
+        // Normalize for homepage consistency: if iframe is at root of BASE_URL, treat as "" path.
+        if (iframeLocation.origin === BASE_URL && iframePathname === '/') {
+          path = '';
+        }
+        // This case handles if the app's initial path was homepage, and iframe navigates to '/', 
+        // ensures currentWebViewPath also becomes "" for consistency.
+        else if (path === '/' && initialPath === '') {
+            path = '';
         }
 
         setCurrentWebViewPath(path);
       } catch (error) {
-        // Cross-origin error
+        // Cross-origin error or other issues accessing iframe location
+        console.warn('FaylitFrame: Could not update nav state from iframe.', error);
       }
     }
-  }, [initialPath]);
+  }, [initialPath]); // BASE_URL is a const.
 
 
   useEffect(() => {
     const iframe = iframeRef.current;
     if (iframe) {
-      iframe.addEventListener('load', updateNavState);
+      const handleLoad = () => {
+        // Delay slightly to allow potential redirects within the iframe to settle
+        setTimeout(updateNavState, 100);
+      };
+      iframe.addEventListener('load', handleLoad);
       return () => {
-        iframe.removeEventListener('load', updateNavState);
+        iframe.removeEventListener('load', handleLoad);
       };
     }
   }, [updateNavState]);
@@ -106,7 +135,7 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
 
   return (
     <div className="flex flex-col h-full bg-background text-foreground overflow-hidden">
-      <main className={`flex-grow relative ${isLoading ? 'pb-0' : 'pb-16'}`}>
+      <main className={`flex-grow relative ${isLoading || !currentWebViewPath && currentWebViewPath !== '' ? 'pb-0' : 'pb-16'}`}>
         {isLoading && (
           <div 
             className="absolute inset-0 flex items-center justify-center bg-white z-10"
@@ -137,3 +166,5 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
 };
 
 export default FaylitFrame;
+
+    
