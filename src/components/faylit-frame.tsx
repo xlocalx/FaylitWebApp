@@ -32,7 +32,7 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
 
   const [currentWebViewPath, setCurrentWebViewPath] = useState<string>(initialPath);
   const [iframeSrc, setIframeSrc] = useState<string>(() => buildUrl(initialPath));
-  const [isLoading, setIsLoading] = useState(true); 
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const newSrc = buildUrl(initialPath);
@@ -40,25 +40,25 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
       setIsLoading(true);
       setIframeSrc(newSrc);
       setCurrentWebViewPath(initialPath);
-    } else if (!iframeRef.current) { 
-        setIsLoading(true);
-        setIframeSrc(newSrc);
-        setCurrentWebViewPath(initialPath);
+    } else if (!iframeRef.current) {
+      setIsLoading(true);
+      setIframeSrc(newSrc);
+      setCurrentWebViewPath(initialPath);
     }
   }, [initialPath, buildUrl]);
-  
+
   const handleNavigation = useCallback((path: string) => {
     const newUrl = buildUrl(path);
-    setCurrentWebViewPath(path); 
+    setCurrentWebViewPath(path);
     if (iframeSrc !== newUrl) {
-      setIsLoading(true); 
+      setIsLoading(true);
       setIframeSrc(newUrl);
     } else if (iframeRef.current?.contentWindow) {
-      try { 
-        iframeRef.current.contentWindow.location.href = newUrl; 
-      } catch(e) { 
+      try {
+        iframeRef.current.contentWindow.location.href = newUrl;
+      } catch (e) {
         if (iframeRef.current.src && iframeRef.current.src !== newUrl) {
-            iframeRef.current.src = newUrl;
+          iframeRef.current.src = newUrl;
         }
       }
     }
@@ -66,75 +66,70 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
 
   const updateNavState = useCallback(() => {
     setIsLoading(false);
-    
+
+    let pathFromKnownSrc = '';
+    if (iframeRef.current?.src) {
+        const currentSrcUrl = new URL(iframeRef.current.src);
+        pathFromKnownSrc = currentSrcUrl.pathname.startsWith('/') ? currentSrcUrl.pathname.substring(1) : currentSrcUrl.pathname;
+        if (currentSrcUrl.pathname === '/') {
+            pathFromKnownSrc = '';
+        }
+    }
+
     if (iframeRef.current && iframeRef.current.contentWindow) {
       try {
+        // Attempt to read the iframe's actual current location.
+        // This will fail if the iframe's content is from a different origin (e.g., faylit.com)
+        // than the parent app (e.g., firebase-studio domain).
         const iframeLocation = iframeRef.current.contentWindow.location;
-        let iframePathname = iframeLocation.pathname;
-        if (iframeLocation.hostname.endsWith('faylit.com') || iframeLocation.hostname === 'faylit.com') {
-          let path = iframePathname.startsWith('/') ? iframePathname.substring(1) : iframePathname;
-          if (iframePathname === '/') {
-            path = '';
-          }
-          setCurrentWebViewPath(path);
-        } else {
-          // If the iframe navigated to a different domain, reflect the intended path
-          const intendedUrl = new URL(iframeRef.current.src);
-          let intendedPath = intendedUrl.pathname.startsWith('/') ? intendedUrl.pathname.substring(1) : intendedUrl.pathname;
-           if (intendedUrl.pathname === '/') {
-            intendedPath = '';
-          }
-          setCurrentWebViewPath(intendedPath);
+        let actualPath = iframeLocation.pathname.startsWith('/') ? iframeLocation.pathname.substring(1) : iframeLocation.pathname;
+        if (iframeLocation.pathname === '/') {
+          actualPath = '';
         }
+        setCurrentWebViewPath(actualPath);
       } catch (error) {
-        console.warn('FaylitFrame: Could not update nav state from iframe due to cross-origin restrictions or other error.', error);
-         // Fallback to using the iframe's src attribute if contentWindow access fails
-         if (iframeRef.current?.src) {
-            const currentSrcUrl = new URL(iframeRef.current.src);
-            let fallbackPath = currentSrcUrl.pathname.startsWith('/') ? currentSrcUrl.pathname.substring(1) : currentSrcUrl.pathname;
-            if (currentSrcUrl.pathname === '/') {
-              fallbackPath = '';
-            }
-            setCurrentWebViewPath(fallbackPath);
-        }
+        console.warn('FaylitFrame: Could not read iframe location due to cross-origin restrictions. Falling back to last known src path.', error);
+        // Fallback to the path derived from the iframe's src attribute,
+        // which is the URL last set by this application.
+        setCurrentWebViewPath(pathFromKnownSrc);
       }
+    } else {
+       // If no contentWindow (e.g., iframe not fully initialized or failed to load), also fallback.
+       setCurrentWebViewPath(pathFromKnownSrc);
     }
-  }, [setCurrentWebViewPath]); 
+  }, [setCurrentWebViewPath]);
 
   useEffect(() => {
     const iframe = iframeRef.current;
     if (iframe) {
       const handleLoad = () => {
-        // Use a small timeout to ensure any redirects inside iframe are settled
         setTimeout(() => {
           updateNavState();
-          if (isFirstLoad) { 
+          if (isFirstLoad) {
             setIsFirstLoad(false);
           }
-        }, 100); // 100ms delay
+        }, 100);
       };
       iframe.addEventListener('load', handleLoad);
       return () => {
         iframe.removeEventListener('load', handleLoad);
       };
     }
-  }, [updateNavState, isFirstLoad]); 
+  }, [updateNavState, isFirstLoad]);
 
-  // Effect to update iframe src when iframeSrc state changes
   useEffect(() => {
     if (iframeRef.current && iframeRef.current.src !== iframeSrc) {
       iframeRef.current.src = iframeSrc;
     }
   }, [iframeSrc]);
 
-  // Timeout for the initial loading screen
   useEffect(() => {
     let timer: NodeJS.Timeout;
-    if (isLoading && isFirstLoad) { 
+    if (isLoading && isFirstLoad) {
       timer = setTimeout(() => {
-        setIsLoading(false); 
-        setIsFirstLoad(false); // Ensure this is set even if iframe load is slow
-      }, 2000); // 2 seconds
+        setIsLoading(false);
+        setIsFirstLoad(false); 
+      }, 2000); 
     }
     return () => {
       if (timer) {
@@ -145,9 +140,9 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
 
   return (
     <div className="flex flex-col h-full bg-background text-foreground overflow-hidden">
-      <main className="flex-grow relative pb-16"> 
-        {isLoading && isFirstLoad && ( 
-          <div 
+      <main className="flex-grow relative pb-16">
+        {isLoading && isFirstLoad && (
+          <div
             className="absolute inset-0 flex items-center justify-center bg-white z-30"
             aria-live="polite"
             aria-busy="true"
@@ -162,12 +157,12 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
         )}
         <iframe
           ref={iframeRef}
-          src={iframeSrc} 
+          src={iframeSrc}
           title="Faylit Store Web View"
           className={`w-full h-full border-0 ${isLoading && isFirstLoad ? 'opacity-0' : 'opacity-100 transition-opacity duration-300'}`}
           sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-downloads allow-modals allow-top-navigation-by-user-activation"
           allowFullScreen
-          loading="eager" 
+          loading="eager"
         />
       </main>
       <BottomNavigation onNavigate={handleNavigation} currentPath={currentWebViewPath} />
