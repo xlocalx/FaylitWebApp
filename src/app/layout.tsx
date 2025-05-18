@@ -16,7 +16,7 @@ const geistSans = localFont({
     { path: '../../node_modules/geist/dist/fonts/geist-sans/Geist-Black.woff2', weight: '800', style: 'normal' },
     { path: '../../node_modules/geist/dist/fonts/geist-sans/Geist-UltraBlack.woff2', weight: '900', style: 'normal' },
   ],
-  subsets: ['latin'],
+  subsets: ['latin'], // Added subset for Geist Sans
 });
 
 const geistMono = localFont({
@@ -31,7 +31,7 @@ const geistMono = localFont({
     { path: '../../node_modules/geist/dist/fonts/geist-mono/GeistMono-Black.woff2', weight: '800', style: 'normal' },
     { path: '../../node_modules/geist/dist/fonts/geist-mono/GeistMono-UltraBlack.woff2', weight: '900', style: 'normal' },
   ],
-  subsets: ['latin'],
+  subsets: ['latin'], // Added subset for Geist Mono
 });
 
 export const metadata: Metadata = {
@@ -43,6 +43,7 @@ export const metadata: Metadata = {
   icons: {
     icon: '/favicon.ico',
   },
+  robots: 'noindex, nofollow', // Added robots meta tag
 };
 
 export const viewport: Viewport = {
