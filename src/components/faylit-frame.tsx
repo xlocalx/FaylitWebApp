@@ -93,10 +93,25 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
           }
           setCurrentWebViewPath(path);
         } else {
-          console.warn('Navigated to external domain:', iframeLocation.origin);
+          // console.warn('Navigated to external domain:', iframeLocation.origin);
+          // To prevent UTM parameters from appearing in currentWebViewPath, we re-parse the intended path
+          const intendedUrl = new URL(iframeRef.current.src);
+          let intendedPath = intendedUrl.pathname.startsWith('/') ? intendedUrl.pathname.substring(1) : intendedUrl.pathname;
+           if (intendedUrl.pathname === '/') {
+            intendedPath = '';
+          }
+          setCurrentWebViewPath(intendedPath);
         }
       } catch (error) {
         console.warn('FaylitFrame: Could not update nav state from iframe due to cross-origin restrictions or other error.', error);
+         if (iframeRef.current?.src) {
+            const currentSrcUrl = new URL(iframeRef.current.src);
+            let fallbackPath = currentSrcUrl.pathname.startsWith('/') ? currentSrcUrl.pathname.substring(1) : currentSrcUrl.pathname;
+            if (currentSrcUrl.pathname === '/') {
+              fallbackPath = '';
+            }
+            setCurrentWebViewPath(fallbackPath);
+        }
       }
     }
   }, [setCurrentWebViewPath]); 
@@ -160,21 +175,36 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
               description: "Faylit Store'dan en son güncellemeler ve özel teklifler hakkında bildirim alacaksınız.",
             });
 
-            const applicationServerKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
-            console.log('Attempting to subscribe with VAPID public key:', applicationServerKey);
+            const applicationServerKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY?.trim();
+            console.log('Attempting to subscribe with VAPID public key string (raw):', process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY);
+            console.log('Attempting to subscribe with VAPID public key string (trimmed):', applicationServerKey);
+
 
             if (!applicationServerKey) {
               console.error('VAPID public key not found. Ensure NEXT_PUBLIC_VAPID_PUBLIC_KEY is set in .env.local, the server was restarted, and the key is correctly prefixed for client-side access.');
               toast({
                 title: "Bildirim Yapılandırma Hatası",
-                description: "VAPID public key bulunamadı. Lütfen yönetici ile iletişime geçin.",
+                description: "VAPID public key bulunamadı. Lütfen yönetici ile iletişime geçin. (Detaylar konsolda)",
                 variant: "destructive",
               });
               return;
             }
 
-            const convertedVapidKey = urlBase64ToUint8Array(applicationServerKey);
-            console.log('Converted VAPID key (first 5 bytes):', convertedVapidKey.slice(0, 5));
+            let convertedVapidKey;
+            try {
+              convertedVapidKey = urlBase64ToUint8Array(applicationServerKey);
+              console.log('Converted VAPID key (Uint8Array). Length:', convertedVapidKey.length);
+            } catch (conversionError: any) {
+              console.error('Failed to convert VAPID public key to Uint8Array:', conversionError);
+              console.error('Original VAPID public key string was:', applicationServerKey);
+              toast({
+                title: "Bildirim Anahtar Hatası",
+                description: `VAPID genel anahtarı dönüştürülemedi: ${conversionError.message}. (Detaylar konsolda)`,
+                variant: "destructive",
+              });
+              return;
+            }
+            
             console.log('ServiceWorkerRegistration object:', swRegistration);
             console.log('PushManager object:', swRegistration.pushManager);
 
@@ -196,7 +226,7 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
                 console.error('Failed to send subscription to server:', response.status, errorData);
                 toast({
                     title: "Abonelik Gönderilemedi",
-                    description: `Sunucu aboneliği kaydedemedi: ${errorData.message || response.statusText}`,
+                    description: `Sunucu aboneliği kaydedemedi: ${errorData.message || response.statusText} (Detaylar konsolda)`,
                     variant: "destructive",
                 });
             } else {
@@ -218,9 +248,10 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
           console.error('Error name:', error.name);
           console.error('Error message:', error.message);
           console.error('Error stack:', error.stack);
+          console.error('VAPID public key used for subscription attempt (trimmed):', process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY?.trim());
           toast({
             title: "Bildirim Hatası",
-            description: `Bildirimler ayarlanamadı: ${error.message || 'Bilinmeyen bir hata oluştu.'}`,
+            description: `Bildirimler ayarlanamadı: ${error.message || 'Bilinmeyen bir hata oluştu.'} (Detaylar konsolda.)`,
             variant: "destructive",
           });
         }
@@ -274,3 +305,5 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
 };
 
 export default FaylitFrame;
+
+    
