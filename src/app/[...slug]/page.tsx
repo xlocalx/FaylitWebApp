@@ -10,8 +10,6 @@ interface DynamicPageProps {
 
 function generatePageSpecificTitle(pathSegments: string[]): string {
   if (!pathSegments || pathSegments.length === 0) {
-    // This case should ideally not be hit if [...slug] always has segments.
-    // The default title from layout.tsx will be used if this returns an empty string or is not set.
     return 'Kategoriler'; 
   }
   const titlePath = pathSegments
@@ -25,7 +23,7 @@ export async function generateMetadata({ params }: DynamicPageProps): Promise<Me
   const descriptionPath = params.slug.join('/');
   
   return {
-    title: pageSpecificTitle, // This will be used with the template in layout.tsx
+    title: pageSpecificTitle,
     description: `Faylit E-Mağaza'da ${descriptionPath || 'en yeni sokak modası'} ürünlerini keşfedin. ${pageSpecificTitle} koleksiyonumuzu inceleyin.`,
   };
 }
