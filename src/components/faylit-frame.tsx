@@ -12,6 +12,20 @@ interface FaylitFrameProps {
 
 const BASE_URL = "https://faylit.com";
 
+// Helper function to convert VAPID public key
+function urlBase64ToUint8Array(base64String: string) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding)
+    .replace(/-/g, '+')
+    .replace(/_/g, '/');
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
+}
+
 const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [isFirstLoad, setIsFirstLoad] = useState(true);
@@ -33,7 +47,7 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
 
   const [currentWebViewPath, setCurrentWebViewPath] = useState<string>(initialPath);
   const [iframeSrc, setIframeSrc] = useState<string>(() => buildUrl(initialPath));
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(true); // True for initial load and subsequent loads
 
   useEffect(() => {
     const newSrc = buildUrl(initialPath);
@@ -67,36 +81,42 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
 
   const updateNavState = useCallback(() => {
     setIsLoading(false);
-    // Removed isFirstLoad update from here, handled by timer/direct load
     
     if (iframeRef.current && iframeRef.current.contentWindow) {
       try {
         const iframeLocation = iframeRef.current.contentWindow.location;
-        const iframePathname = iframeLocation.pathname;
-        let path = iframePathname.startsWith('/') ? iframePathname.substring(1) : iframePathname;
-        
-        if (iframeLocation.origin === BASE_URL && iframePathname === '/') {
-          path = '';
-        }
-        else if (path === '/' && initialPath === '') { 
+        let iframePathname = iframeLocation.pathname;
+        if (iframeLocation.hostname.endsWith('faylit.com') || iframeLocation.hostname === 'faylit.com') {
+          // Remove leading slash if present, unless it's the only character
+          let path = iframePathname.startsWith('/') ? iframePathname.substring(1) : iframePathname;
+          
+          // Handle root path correctly
+          if (iframePathname === '/') {
             path = '';
+          }
+          setCurrentWebViewPath(path);
+        } else {
+          // If the iframe has navigated to a different domain, we might not be able to read the path
+          // or we might want to reset the app's path notion.
+          // For now, we'll assume it might be an external link and keep current app path or reset.
+          console.warn('Navigated to external domain:', iframeLocation.origin);
         }
-        setCurrentWebViewPath(path);
+
       } catch (error) {
-        console.warn('FaylitFrame: Could not update nav state from iframe.', error);
+        console.warn('FaylitFrame: Could not update nav state from iframe due to cross-origin restrictions or other error.', error);
+        // Potentially reset currentWebViewPath or handle as an external navigation
       }
     }
-  }, [initialPath, setCurrentWebViewPath]); 
+  }, [setCurrentWebViewPath]); 
 
   useEffect(() => {
     const iframe = iframeRef.current;
     if (iframe) {
       const handleLoad = () => {
+        // A short delay can help ensure any client-side routing in iframe completes
         setTimeout(() => {
           updateNavState();
-          // If this is the first load completing, also mark isFirstLoad as false.
-          // This ensures the logo doesn't reappear if the iframe itself triggers a load event quickly.
-          if (isFirstLoad) {
+          if (isFirstLoad) { // Only set isFirstLoad to false after initial iframe load completes
             setIsFirstLoad(false);
           }
         }, 100); 
@@ -106,7 +126,7 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
         iframe.removeEventListener('load', handleLoad);
       };
     }
-  }, [updateNavState, isFirstLoad]);
+  }, [updateNavState, isFirstLoad]); // isFirstLoad added
 
   useEffect(() => {
     if (iframeRef.current && iframeRef.current.src !== iframeSrc) {
@@ -114,12 +134,13 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
     }
   }, [iframeSrc]);
 
+  // Timer for the initial loading screen (logo screen)
   useEffect(() => {
     let timer: NodeJS.Timeout;
-    if (isLoading && isFirstLoad) { 
+    if (isLoading && isFirstLoad) { // Only apply 2s timeout to the very first logo screen
       timer = setTimeout(() => {
-        setIsLoading(false); 
-        setIsFirstLoad(false); 
+        setIsLoading(false); // Hide loading screen
+        setIsFirstLoad(false); // Mark first load as done
       }, 2000);
     }
     return () => {
@@ -129,54 +150,95 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
     };
   }, [isLoading, isFirstLoad]);
 
+
+  // Request notification permission and subscribe
   useEffect(() => {
-    // Request notification permission after initial loading screen is done
-    if (!isFirstLoad && !permissionRequested) {
-      if (typeof window !== 'undefined' && 'Notification' in window) {
-        if (Notification.permission === 'default') {
-          Notification.requestPermission().then((permission) => {
-            setPermissionRequested(true); // Mark as requested for this session
-            if (permission === 'granted') {
-              console.log('Notification permission granted.');
+    if (!isFirstLoad && !permissionRequested && typeof window !== 'undefined' && 'Notification' in window && 'serviceWorker' in navigator && 'PushManager' in window) {
+      const registerServiceWorkerAndSubscribe = async () => {
+        try {
+          const swRegistration = await navigator.serviceWorker.register('/sw.js');
+          console.log('Service Worker registered:', swRegistration);
+          
+          // It's good practice to wait for the SW to be active
+          await navigator.serviceWorker.ready;
+
+          const permission = await Notification.requestPermission();
+          setPermissionRequested(true); // Mark as requested regardless of outcome for this session
+
+          if (permission === 'granted') {
+            toast({
+              title: "Bildirimler Etkinleştirildi",
+              description: "Faylit Store'dan en son güncellemeler ve özel teklifler hakkında bildirim alacaksınız.",
+            });
+
+            const applicationServerKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+            if (!applicationServerKey) {
+              console.error('VAPID public key not found. Set NEXT_PUBLIC_VAPID_PUBLIC_KEY environment variable.');
               toast({
-                title: "Bildirimler Etkinleştirildi",
-                description: "Faylit Store'dan en son güncellemeler ve özel teklifler hakkında bildirim alacaksınız.",
-              });
-              // TODO: Subscribe user and send subscription to backend
-            } else if (permission === 'denied') {
-              console.log('Notification permission denied.');
-              toast({
-                title: "Bildirim İzinleri Reddedildi",
-                description: "Bildirim almak isterseniz, tarayıcı ayarlarınızdan Faylit Store için izinleri daha sonra etkinleştirebilirsiniz.",
+                title: "Bildirim Hatası",
+                description: "Bildirim ayarları yapılandırılamadı (anahtar eksik).",
                 variant: "destructive",
               });
-            } else {
-              console.log('Notification permission prompt dismissed.');
+              return;
             }
-          });
-        } else {
-          // Permission already granted or denied, or browser doesn't support
-          setPermissionRequested(true); // Mark as "handled" for this session
-          if(Notification.permission === 'granted') {
-            console.log('Notification permission was already granted.');
-          } else if (Notification.permission === 'denied') {
-            console.log('Notification permission was already denied.');
+
+            const subscription = await swRegistration.pushManager.subscribe({
+              userVisibleOnly: true,
+              applicationServerKey: urlBase64ToUint8Array(applicationServerKey),
+            });
+            console.log('User is subscribed:', subscription);
+
+            await fetch('/api/subscribe', {
+              method: 'POST',
+              body: JSON.stringify(subscription),
+              headers: {
+                'Content-Type': 'application/json',
+              },
+            });
+            console.log('Subscription sent to server.');
+
+          } else if (permission === 'denied') {
+            console.log('Notification permission denied.');
+            toast({
+              title: "Bildirim İzinleri Reddedildi",
+              description: "Bildirim almak isterseniz, tarayıcı ayarlarınızdan Faylit Store için izinleri daha sonra etkinleştirebilirsiniz.",
+              variant: "destructive",
+            });
+          } else {
+            console.log('Notification permission prompt dismissed.');
           }
+        } catch (error: any) {
+          console.error('Service Worker registration or Push Subscription failed:', error);
+          toast({
+            title: "Bildirim Hatası",
+            description: `Bildirimler ayarlanamadı: ${error.message || 'Bilinmeyen bir hata oluştu.'}`,
+            variant: "destructive",
+          });
         }
-      } else {
-        console.log('This browser does not support desktop notification or window is not defined.');
-        setPermissionRequested(true); // Mark as "handled" for this session
-      }
+      };
+
+      registerServiceWorkerAndSubscribe();
+
+    } else if (!isFirstLoad && !permissionRequested) {
+        // Handle cases where SW or PushManager not supported, or permission already handled by other means
+        setPermissionRequested(true); // Mark as "handled" for this session to prevent re-prompting
+        if (typeof window !== 'undefined') {
+            if (!('Notification' in window)) console.log('Notifications not supported by this browser.');
+            else if (!('serviceWorker' in navigator)) console.log('Service Worker not supported by this browser.');
+            else if (!('PushManager' in window)) console.log('Push Manager not supported by this browser.');
+            else if (Notification.permission === 'granted') console.log('Notification permission was already granted.');
+            else if (Notification.permission === 'denied') console.log('Notification permission was already denied.');
+        }
     }
   }, [isFirstLoad, permissionRequested, toast]);
 
 
   return (
     <div className="flex flex-col h-full bg-background text-foreground overflow-hidden">
-      <main className="flex-grow relative pb-16"> 
-        {isLoading && isFirstLoad && (
+      <main className={`flex-grow relative ${isFirstLoad && isLoading ? 'pb-0' : 'pb-16'}`}> 
+        {isLoading && isFirstLoad && ( // Show logo only on very first load
           <div 
-            className="absolute inset-0 flex items-center justify-center bg-white z-10"
+            className="absolute inset-0 flex items-center justify-center bg-white z-30" // Higher z-index
             aria-live="polite"
             aria-busy="true"
           >
@@ -204,4 +266,3 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
 };
 
 export default FaylitFrame;
-    
