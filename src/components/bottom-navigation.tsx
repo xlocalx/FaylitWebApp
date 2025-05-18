@@ -21,7 +21,7 @@ const BottomNavigation: FC<BottomNavigationProps> = ({ onNavigate, currentPath }
   return (
     <nav className={cn(
       "fixed bottom-0 left-0 right-0 h-16 border-t border-border shadow-md flex items-center justify-around z-20",
-      "bg-gradient-to-t from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900"
+      "bg-background" // Use theme background color
     )}>
       {navItems.map((item) => {
         // Normalize currentPath for comparison (e.g., remove leading/trailing slashes)
