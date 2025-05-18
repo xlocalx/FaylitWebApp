@@ -21,7 +21,7 @@ const BottomNavigation: FC<BottomNavigationProps> = ({ onNavigate, currentPath }
   return (
     <nav className={cn(
       "fixed bottom-0 left-0 right-0 h-16 border-t border-border shadow-md flex items-center justify-around z-20",
-      "bg-background" 
+      "bg-background"
     )}>
       {navItems.map((item) => {
         const normalizedCurrentPath = currentPath.replace(/^\/|\/$/g, '');
@@ -33,10 +33,19 @@ const BottomNavigation: FC<BottomNavigationProps> = ({ onNavigate, currentPath }
             key={item.label}
             variant="ghost"
             className={cn(
-              "flex flex-col items-center justify-center h-full flex-1 rounded-none text-xs p-1 transition-colors duration-150 ease-in-out",
-              isActive 
-                ? "bg-primary/20 text-primary-foreground font-semibold" 
-                : "text-muted-foreground hover:text-accent-foreground"
+              "flex flex-col items-center justify-center h-full flex-1 rounded-none text-xs p-1 transition-colors duration-150 ease-in-out focus-visible:ring-0 focus-visible:ring-offset-0", // Removed focus ring for cleaner look on mobile nav
+              item.path === 'indirim'
+                ? [ // Special styling for "İndirim" button
+                    "bg-gradient-to-r from-red-500 via-red-600 to-red-700",
+                    isActive
+                      ? "text-white font-semibold" // Active state for Indirim
+                      : "text-red-200 hover:text-white", // Inactive state for Indirim
+                  ]
+                : [ // Standard styling for other buttons
+                    isActive
+                      ? "bg-primary/20 text-primary-foreground font-semibold"
+                      : "text-muted-foreground hover:text-accent-foreground",
+                  ]
             )}
             onClick={() => onNavigate(item.path)}
             data-testid={item.testId}
