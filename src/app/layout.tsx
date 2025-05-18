@@ -1,10 +1,10 @@
 
 import type { Metadata, Viewport } from 'next';
-import localFont from 'next/font/local'; 
+import localFont from 'next/font/local';
 import './globals.css';
-import { Toaster } from "@/components/ui/toaster"; // Changed to lowercase filename
+import { Toaster } from "@/components/ui/toaster.tsx";
 
-const geistSans = localFont({ 
+const geistSans = localFont({
   variable: '--font-geist-sans',
   src: [
     { path: '../../node_modules/geist/dist/fonts/geist-sans/Geist-UltraLight.woff2', weight: '200', style: 'normal' },
@@ -16,10 +16,10 @@ const geistSans = localFont({
     { path: '../../node_modules/geist/dist/fonts/geist-sans/Geist-Black.woff2', weight: '800', style: 'normal' },
     { path: '../../node_modules/geist/dist/fonts/geist-sans/Geist-UltraBlack.woff2', weight: '900', style: 'normal' },
   ],
-  subsets: ['latin'], // Added subset
+  subsets: ['latin'],
 });
 
-const geistMono = localFont({ 
+const geistMono = localFont({
   variable: '--font-geist-mono',
   src: [
     { path: '../../node_modules/geist/dist/fonts/geist-mono/GeistMono-UltraLight.woff2', weight: '200', style: 'normal' },
@@ -31,7 +31,7 @@ const geistMono = localFont({
     { path: '../../node_modules/geist/dist/fonts/geist-mono/GeistMono-Black.woff2', weight: '800', style: 'normal' },
     { path: '../../node_modules/geist/dist/fonts/geist-mono/GeistMono-UltraBlack.woff2', weight: '900', style: 'normal' },
   ],
-  subsets: ['latin'], // Added subset
+  subsets: ['latin'],
 });
 
 export const metadata: Metadata = {
