@@ -1,13 +1,12 @@
 
 import type { Metadata, Viewport } from 'next';
-import { Geist_Sans as Geist, Geist_Mono } from 'next/font/local'; // Corrected import for local Geist fonts
+import localFont from 'next/font/local'; // Corrected import for localFont
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
 
-const geistSans = Geist({
+const geistSans = localFont({ // Use localFont to define
   variable: '--font-geist-sans',
-  subsets: ['latin'], // Added subset
-  src: [ // Assuming standard installation paths for next/font/local
+  src: [
     { path: '../../node_modules/geist/dist/fonts/geist-sans/Geist-UltraLight.woff2', weight: '200', style: 'normal' },
     { path: '../../node_modules/geist/dist/fonts/geist-sans/Geist-Light.woff2', weight: '300', style: 'normal' },
     { path: '../../node_modules/geist/dist/fonts/geist-sans/Geist-Regular.woff2', weight: '400', style: 'normal' },
@@ -17,12 +16,12 @@ const geistSans = Geist({
     { path: '../../node_modules/geist/dist/fonts/geist-sans/Geist-Black.woff2', weight: '800', style: 'normal' },
     { path: '../../node_modules/geist/dist/fonts/geist-sans/Geist-UltraBlack.woff2', weight: '900', style: 'normal' },
   ],
+  subsets: ['latin'], // Added subset
 });
 
-const geistMono = Geist_Mono({
+const geistMono = localFont({ // Use localFont to define
   variable: '--font-geist-mono',
-  subsets: ['latin'], // Added subset
-  src: [ // Assuming standard installation paths for next/font/local
+  src: [
     { path: '../../node_modules/geist/dist/fonts/geist-mono/GeistMono-UltraLight.woff2', weight: '200', style: 'normal' },
     { path: '../../node_modules/geist/dist/fonts/geist-mono/GeistMono-Light.woff2', weight: '300', style: 'normal' },
     { path: '../../node_modules/geist/dist/fonts/geist-mono/GeistMono-Regular.woff2', weight: '400', style: 'normal' },
@@ -32,6 +31,7 @@ const geistMono = Geist_Mono({
     { path: '../../node_modules/geist/dist/fonts/geist-mono/GeistMono-Black.woff2', weight: '800', style: 'normal' },
     { path: '../../node_modules/geist/dist/fonts/geist-mono/GeistMono-UltraBlack.woff2', weight: '900', style: 'normal' },
   ],
+  subsets: ['latin'], // Added subset
 });
 
 export const metadata: Metadata = {
