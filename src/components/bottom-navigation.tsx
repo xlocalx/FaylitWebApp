@@ -21,10 +21,9 @@ const BottomNavigation: FC<BottomNavigationProps> = ({ onNavigate, currentPath }
   return (
     <nav className={cn(
       "fixed bottom-0 left-0 right-0 h-16 border-t border-border shadow-md flex items-center justify-around z-20",
-      "bg-background" // Use theme background color
+      "bg-background" 
     )}>
       {navItems.map((item) => {
-        // Normalize currentPath for comparison (e.g., remove leading/trailing slashes)
         const normalizedCurrentPath = currentPath.replace(/^\/|\/$/g, '');
         const normalizedItemPath = item.path.replace(/^\/|\/$/g, '');
         const isActive = normalizedCurrentPath === normalizedItemPath;
@@ -34,14 +33,16 @@ const BottomNavigation: FC<BottomNavigationProps> = ({ onNavigate, currentPath }
             key={item.label}
             variant="ghost"
             className={cn(
-              "flex flex-col items-center justify-center h-full flex-1 rounded-none text-xs p-1",
-              isActive ? "text-primary font-semibold" : "text-muted-foreground"
+              "flex flex-col items-center justify-center h-full flex-1 rounded-none text-xs p-1 transition-colors duration-150 ease-in-out",
+              isActive 
+                ? "bg-primary/20 text-primary-foreground font-semibold" 
+                : "text-muted-foreground hover:text-accent-foreground"
             )}
             onClick={() => onNavigate(item.path)}
             data-testid={item.testId}
             aria-current={isActive ? "page" : undefined}
           >
-            <item.icon className={cn("h-5 w-5 mb-0.5", isActive ? "text-primary" : "")} />
+            <item.icon className={cn("h-5 w-5 mb-0.5")} />
             {item.label}
           </Button>
         );
