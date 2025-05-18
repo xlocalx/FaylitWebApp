@@ -109,8 +109,7 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
       <main className="flex-grow relative pb-16">
         {isLoading && (
           <div 
-            className="absolute inset-0 flex items-center justify-center bg-background/60 z-10"
-            style={{ backdropFilter: 'blur(2px)' }} 
+            className="absolute inset-0 flex items-center justify-center bg-white z-10"
             aria-live="polite"
             aria-busy="true"
           >
