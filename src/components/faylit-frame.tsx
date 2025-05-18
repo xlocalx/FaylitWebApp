@@ -93,8 +93,6 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
           }
           setCurrentWebViewPath(path);
         } else {
-          // console.warn('Navigated to external domain:', iframeLocation.origin);
-          // To prevent UTM parameters from appearing in currentWebViewPath, we re-parse the intended path
           const intendedUrl = new URL(iframeRef.current.src);
           let intendedPath = intendedUrl.pathname.startsWith('/') ? intendedUrl.pathname.substring(1) : intendedUrl.pathname;
            if (intendedUrl.pathname === '/') {
@@ -245,13 +243,18 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
           }
         } catch (error: any) {
           console.error('Service Worker registration or Push Subscription failed dramatically:', error);
-          console.error('Error name:', error.name);
-          console.error('Error message:', error.message);
-          console.error('Error stack:', error.stack);
+          if (error instanceof Error) {
+            console.error('Error name:', error.name);
+            console.error('Error message:', error.message);
+            console.error('Error stack:', error.stack);
+          } else {
+            console.error('Caught non-Error object:', error);
+          }
           console.error('VAPID public key used for subscription attempt (trimmed):', process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY?.trim());
+          const errorMessage = error instanceof Error ? error.message : 'Bilinmeyen bir hata oluştu.';
           toast({
             title: "Bildirim Hatası",
-            description: `Bildirimler ayarlanamadı: ${error.message || 'Bilinmeyen bir hata oluştu.'} (Detaylar konsolda.)`,
+            description: `Bildirimler ayarlanamadı: ${errorMessage} (Detaylar konsolda.)`,
             variant: "destructive",
           });
         }
@@ -274,7 +277,7 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
 
   return (
     <div className="flex flex-col h-full bg-background text-foreground overflow-hidden">
-      <main className={`flex-grow relative pb-16`}> 
+      <main className="flex-grow relative pb-16"> 
         {isLoading && isFirstLoad && ( 
           <div 
             className="absolute inset-0 flex items-center justify-center bg-white z-30"
@@ -305,5 +308,3 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
 };
 
 export default FaylitFrame;
-
-    

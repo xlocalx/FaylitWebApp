@@ -1,5 +1,5 @@
 
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
@@ -20,13 +20,14 @@ export const metadata: Metadata = {
     template: '%s | Faylit',
   },
   description: 'Faylit - Sokak Modası, Giyim. En trend sokak giyim ürünleri, aksesuarlar ve daha fazlasını Faylit E-Mağaza\'da keşfedin.',
-  viewport: {
-    width: 'device-width',
-    initialScale: 1,
-  },
   icons: {
     icon: '/favicon.ico',
   },
+};
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
 };
 
 export default function RootLayout({
