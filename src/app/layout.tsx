@@ -1,10 +1,10 @@
 
 import type { Metadata, Viewport } from 'next';
-import localFont from 'next/font/local'; // Corrected import for localFont
+import localFont from 'next/font/local'; 
 import './globals.css';
-import { Toaster } from "@/components/ui/toaster";
+import { Toaster } from "@/components/ui/toaster"; // Changed to lowercase filename
 
-const geistSans = localFont({ // Use localFont to define
+const geistSans = localFont({ 
   variable: '--font-geist-sans',
   src: [
     { path: '../../node_modules/geist/dist/fonts/geist-sans/Geist-UltraLight.woff2', weight: '200', style: 'normal' },
@@ -19,7 +19,7 @@ const geistSans = localFont({ // Use localFont to define
   subsets: ['latin'], // Added subset
 });
 
-const geistMono = localFont({ // Use localFont to define
+const geistMono = localFont({ 
   variable: '--font-geist-mono',
   src: [
     { path: '../../node_modules/geist/dist/fonts/geist-mono/GeistMono-UltraLight.woff2', weight: '200', style: 'normal' },

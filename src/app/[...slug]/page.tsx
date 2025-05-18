@@ -1,5 +1,5 @@
 
-import FaylitFrame from '@/components/faylit-frame';
+import FaylitFrame from '@/components/faylit-frame'; // Changed to lowercase filename
 import type { Metadata } from 'next';
 
 interface DynamicPageProps {
@@ -23,7 +23,7 @@ export async function generateMetadata({ params }: DynamicPageProps): Promise<Me
   const descriptionPath = params.slug.join('/');
   
   return {
-    title: pageSpecificTitle,
+    title: pageSpecificTitle, // This will be used by the template in layout.tsx
     description: `Faylit E-Mağaza'da ${descriptionPath || 'en yeni sokak modası'} ürünlerini keşfedin. ${pageSpecificTitle} koleksiyonumuzu inceleyin.`,
   };
 }
