@@ -41,7 +41,9 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
     for (const [key, value] of Object.entries(utmParameters)) {
       urlObject.searchParams.set(key, value);
     }
-    return urlObject.toString();
+    const finalUrl = urlObject.toString();
+    console.log('[FaylitFrame] Building URL for iframe:', finalUrl); // Added log
+    return finalUrl;
   }, []);
 
   const [currentWebViewPath, setCurrentWebViewPath] = useState<string>(initialPath);
@@ -83,7 +85,7 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
         description: `${DISCOUNT_CODE} kodu panonuza kopyalandı.`,
       });
       setTimeout(() => {
-        dismiss(toastId); 
+        dismiss(toastId);
       }, 4000);
     } catch (err) {
       const { id: toastId } = toast({
@@ -91,18 +93,20 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
         description: "Kod kopyalanamadı. Lütfen manuel olarak kopyalayın.",
         variant: "destructive",
       });
-      setTimeout(() => { 
+      setTimeout(() => {
         dismiss(toastId);
       }, 5000);
       console.error('Failed to copy discount code: ', err);
     }
   };
 
-  // Effect to handle initialPath changes (e.g., when the Next.js page hosting FaylitFrame changes)
   useEffect(() => {
     setIsLoading(true);
     setIframeSrc(buildUrl(initialPath));
     setCurrentWebViewPath(initialPath);
+    // Update browser history for the shell app
+    const newAppPath = initialPath ? `/${initialPath.replace(/^\//, '')}` : '/';
+    window.history.replaceState(null, '', newAppPath);
   }, [initialPath, buildUrl]);
 
 
@@ -111,7 +115,6 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
     if (iframeRef.current?.src) {
         try {
             const currentSrcUrl = new URL(iframeRef.current.src);
-            // Remove UTM parameters for internal path representation
             currentSrcUrl.searchParams.delete('utm_source');
             currentSrcUrl.searchParams.delete('utm_medium');
             currentSrcUrl.searchParams.delete('utm_campaign');
@@ -122,10 +125,9 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
             }
         } catch (e) {
             console.warn('FaylitFrame: Could not parse iframe src URL for pathFromKnownSrc.', e);
-            // Fallback to a more naive path extraction if URL parsing fails
             const src = iframeRef.current?.src || '';
             const rawPath = src.replace(BASE_URL, '').replace(/^\//, '');
-            pathFromKnownSrc = rawPath.split('?')[0] || ''; // Basic removal of query string
+            pathFromKnownSrc = rawPath.split('?')[0] || '';
         }
     }
     
@@ -133,54 +135,66 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
       try {
         const iframeLocation = iframeRef.current.contentWindow.location;
         let actualPath = (iframeLocation.pathname + iframeLocation.search + iframeLocation.hash).replace(/^\//, '');
-        // Ensure base path ('/') is represented as empty string to match initialPath convention
         if (iframeLocation.pathname === '/' && !iframeLocation.search && !iframeLocation.hash) {
           actualPath = ''; 
         }
         setCurrentWebViewPath(actualPath);
+        // Update browser history for the shell app
+        const newAppPath = actualPath ? `/${actualPath.replace(/^\//, '')}` : '/';
+        if (window.location.pathname !== newAppPath) {
+          window.history.pushState(null, '', newAppPath);
+        }
+
       } catch (error) {
         console.warn('FaylitFrame: Could not read iframe contentWindow.location due to cross-origin restrictions. Falling back to last known src path without UTMs.', error);
         setCurrentWebViewPath(pathFromKnownSrc); 
+         const newAppPath = pathFromKnownSrc ? `/${pathFromKnownSrc.replace(/^\//, '')}` : '/';
+         if (window.location.pathname !== newAppPath) {
+            window.history.pushState(null, '', newAppPath);
+        }
       }
     } else {
-       // Fallback if contentWindow is not accessible
        setCurrentWebViewPath(pathFromKnownSrc);
+       const newAppPath = pathFromKnownSrc ? `/${pathFromKnownSrc.replace(/^\//, '')}` : '/';
+       if (window.location.pathname !== newAppPath) {
+          window.history.pushState(null, '', newAppPath);
+      }
     }
-  }, [setCurrentWebViewPath]); // Only depends on stable setters
+  }, [setCurrentWebViewPath]);
 
 
   const handleNavigation = useCallback((path: string) => {
     const newUrl = buildUrl(path);
     setCurrentWebViewPath(path); 
     setIsLoading(true); 
-    setIframeSrc(newUrl); // Directly set the new iframe source
-  }, [buildUrl]); // Depends on memoized buildUrl and stable setters
+    setIframeSrc(newUrl);
+    // Update browser history for the shell app
+    const newAppPath = path ? `/${path.replace(/^\//, '')}` : '/';
+    window.history.pushState(null, '', newAppPath);
+  }, [buildUrl]);
 
   useEffect(() => {
     const iframe = iframeRef.current;
     if (iframe) {
       const handleIframeLoadEvent = () => {
-        // setIsLoading(false) is handled by iframe's onLoad prop
-        // A small delay can sometimes be beneficial for stability before updating nav state.
         setTimeout(updateNavState, 50);
       };
-
       iframe.addEventListener('load', handleIframeLoadEvent);
       return () => {
-        if (iframe) { // Check if iframe still exists before removing listener
+        if (iframe) {
           iframe.removeEventListener('load', handleIframeLoadEvent);
         }
       };
     }
-  }, [updateNavState]);
+  }, [updateNavState, iframeSrc]); // iframeSrc dependency ensures re-attachment if iframe re-mounts
 
   return (
     <div className="flex flex-col h-full bg-background text-foreground overflow-hidden">
       <main className="flex-grow relative pb-16">
         <iframe
-          key={iframeSrc} // Ensures iframe re-mounts if src string changes
+          key={iframeSrc}
           ref={iframeRef}
-          src={iframeSrc} // Initial src, will be updated by effects or navigation
+          src={iframeSrc}
           title="Faylit Store Web View"
           className="w-full h-full border-0"
           sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-downloads allow-modals allow-top-navigation-by-user-activation"
