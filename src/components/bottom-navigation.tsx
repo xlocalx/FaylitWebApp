@@ -14,7 +14,7 @@ interface BottomNavigationProps {
 const navItems = [
   { label: 'Faylit', path: '', icon: Home, testId: 'faylit-button' },
   { label: 'Sepet', path: 'cart', icon: ShoppingCart, testId: 'sepet-button' },
-  { label: 'Favorilerim', path: 'wishlist', icon: Heart, testId: 'favorilerim-button' }, // Added new button
+  { label: 'Favorilerim', path: 'account/favorite-products', icon: Heart, testId: 'favorilerim-button' },
   { label: 'İndirim', path: 'indirim', icon: Percent, testId: 'indirim-button' },
 ];
 
