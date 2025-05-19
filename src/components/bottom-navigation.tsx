@@ -5,17 +5,31 @@ import type { FC } from 'react';
 import { Home, ShoppingCart, Percent, Heart } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-interface BottomNavigationProps {
-  onNavigate: (path: string) => void;
-  currentPath: string;
+interface NavItem {
+  label: string;
+  path: string;
+  icon: FC<React.SVGProps<SVGSVGElement>>;
+  testId: string;
+  externalLoginUrl?: string;
 }
 
-const navItems = [
+const navItems: NavItem[] = [
   { label: 'Faylit', path: '', icon: Home, testId: 'faylit-button' },
   { label: 'Sepet', path: 'cart', icon: ShoppingCart, testId: 'sepet-button' },
-  { label: 'Favorilerim', path: 'account/favorite-products', icon: Heart, testId: 'favorilerim-button' },
+  {
+    label: 'Favorilerim',
+    path: 'account/favorite-products', // Target path in WebView after successful login & return
+    icon: Heart,
+    testId: 'favorilerim-button',
+    externalLoginUrl: 'https://faylit.com/account/login', // URL to open in CCT
+  },
   { label: 'İndirim', path: 'indirim', icon: Percent, testId: 'indirim-button' },
 ];
+
+interface BottomNavigationProps {
+  onNavigate: (path: string, externalLoginUrl?: string) => void;
+  currentPath: string;
+}
 
 const BottomNavigation: FC<BottomNavigationProps> = ({ onNavigate, currentPath }) => {
   return (
@@ -33,20 +47,17 @@ const BottomNavigation: FC<BottomNavigationProps> = ({ onNavigate, currentPath }
             type="button"
             key={item.label}
             className={cn(
-              // Base structure and sizing for the button element
               "flex flex-col items-center justify-center h-full flex-1",
-              // Visuals and interaction
-              "rounded-none transition-colors duration-150 ease-in-out",
-              "focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2", // Standard focus for accessibility
-              "overflow-hidden", // Keep this for safety, clips content if it's still too large
-              "px-1 py-2", // Explicit padding: minimal horizontal, reasonable vertical
-              "text-[11px] leading-tight", // Text styling
-              // Conditional styling for active/inactive states
+              "transition-colors duration-150 ease-in-out",
+              "focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+              "overflow-hidden",
+              "px-1 py-2",
+              "text-[11px] leading-tight",
               isActive
                 ? "bg-primary/20 text-primary-foreground font-semibold"
                 : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
             )}
-            onClick={() => onNavigate(item.path)}
+            onClick={() => onNavigate(item.path, item.externalLoginUrl)}
             data-testid={item.testId}
             aria-current={isActive ? "page" : undefined}
           >

@@ -3,7 +3,7 @@
 
 import type { FC } from 'react';
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import BottomNavigation from './bottom-navigation'; // Adjusted path
+import BottomNavigation from './bottom-navigation';
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -67,7 +67,7 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
   const handleCloseDiscountPopup = () => setIsDiscountPopupOpen(false);
 
   const handleCopyDiscountCode = async () => {
-    if (!navigator.clipboard) {
+    if (typeof window === 'undefined' || !navigator.clipboard) {
       const { id: toastId } = toast({
         title: "Hata",
         description: "Panoya kopyalama bu tarayıcıda/ortamda desteklenmiyor.",
@@ -110,7 +110,6 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
     }
   }, [initialPath, buildUrl]);
 
-
   const updateNavState = useCallback(() => {
     let pathFromKnownSrc = '';
     if (iframeRef.current?.src) {
@@ -144,7 +143,6 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
         if (typeof window !== "undefined" && window.location.pathname !== newAppPath) {
           window.history.pushState(null, '', newAppPath);
         }
-
       } catch (error) {
         console.warn('FaylitFrame: Could not read iframe contentWindow.location due to cross-origin restrictions. Falling back to last known src path without UTMs.', error);
         setCurrentWebViewPath(pathFromKnownSrc); 
@@ -160,25 +158,58 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
           window.history.pushState(null, '', newAppPath);
       }
     }
-  }, [setCurrentWebViewPath]);
+  }, []); // Removed setCurrentWebViewPath as it caused potential loops with updateNavState
 
+  const handleNavigation = useCallback(
+    (path: string, externalLoginUrl?: string) => {
+      // Try to use AndroidBridge for external login if URL is provided
+      if (externalLoginUrl && typeof window !== 'undefined' && (window as any).AndroidBridge?.openChromeCustomTab) {
+        try {
+          console.log(`[FaylitFrame] Attempting to open CCT for: ${externalLoginUrl}`);
+          (window as any).AndroidBridge.openChromeCustomTab(externalLoginUrl);
+          // Optimistically set the path for button active state.
+          // The actual content refresh/navigation after CCT login
+          // needs to be handled by native code redirecting back to the app
+          // and potentially signaling the WebView to update.
+          setCurrentWebViewPath(path); // path = 'account/favorite-products'
+          const newAppPathForCCT = path ? `/${path.replace(/^\//, '')}` : '/';
+            if (window.location.pathname !== newAppPathForCCT) {
+             window.history.pushState(null, '', newAppPathForCCT);
+            }
+          return;
+        } catch (error) {
+          console.error("[FaylitFrame] Failed to open Chrome Custom Tab via AndroidBridge:", error);
+          // Fallback: open the login page directly in the iframe if CCT bridge fails
+          const loginUrlForIframe = buildUrl('account/login');
+          setCurrentWebViewPath('account/login'); // path will be 'account/login'
+          setIsLoading(true);
+          setIframeSrc(loginUrlForIframe);
+          const loginAppPath = '/account/login';
+           if (window.location.pathname !== loginAppPath) {
+             window.history.pushState(null, '', loginAppPath);
+           }
+          return;
+        }
+      }
 
-  const handleNavigation = useCallback((path: string) => {
-    const newUrl = buildUrl(path);
-    setCurrentWebViewPath(path); 
-    setIsLoading(true); 
-    setIframeSrc(newUrl);
-    const newAppPath = path ? `/${path.replace(/^\//, '')}` : '/';
-    if (typeof window !== "undefined") {
-      window.history.pushState(null, '', newAppPath);
-    }
-  }, [buildUrl]);
+      // Default iframe navigation for other buttons or if CCT is not applicable
+      const newUrl = buildUrl(path);
+      setCurrentWebViewPath(path);
+      setIsLoading(true);
+      setIframeSrc(newUrl);
+      const newAppPath = path ? `/${path.replace(/^\//, '')}` : '/';
+      if (typeof window !== "undefined" && window.location.pathname !== newAppPath) {
+        window.history.pushState(null, '', newAppPath);
+      }
+    },
+    [buildUrl, setIsLoading, setIframeSrc, setCurrentWebViewPath] // Added setCurrentWebViewPath
+  );
 
   useEffect(() => {
     const iframe = iframeRef.current;
     const handleIframeLoadEvent = () => {
-      setIsLoading(false); 
-      setTimeout(updateNavState, 50); 
+      setIsLoading(false);
+      setTimeout(updateNavState, 50);
     };
 
     if (iframe) {
@@ -189,13 +220,13 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
         }
       };
     }
-  }, [updateNavState, iframeSrc]); 
+  }, [updateNavState, iframeSrc]);
 
   return (
     <div className="flex flex-col h-full bg-background text-foreground overflow-hidden">
       <main className="flex-grow relative pb-16">
         <iframe
-          key={iframeSrc}
+          key={iframeSrc} /* Re-mount iframe when src changes */
           ref={iframeRef}
           src={iframeSrc}
           title="Faylit Store Web View"
@@ -203,8 +234,8 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
           sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-downloads allow-modals allow-top-navigation-by-user-activation"
           allowFullScreen
           loading="eager"
+          onLoad={() => setIsLoading(false)} // Primary way to set isLoading to false
           allow="attribution-reporting; browsing-topics;"
-          onLoad={() => setIsLoading(false)} 
         />
       </main>
       <BottomNavigation onNavigate={handleNavigation} currentPath={currentWebViewPath} />
@@ -233,5 +264,3 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
 };
 
 export default FaylitFrame;
-
-    
