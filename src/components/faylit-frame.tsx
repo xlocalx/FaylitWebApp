@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Copy } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface FaylitFrameProps {
   initialPath?: string;
@@ -24,7 +25,7 @@ interface FaylitFrameProps {
 
 const BASE_URL = "https://faylit.com";
 const DISCOUNT_CODE = "APP10";
-const DISCOUNT_POPUP_LS_KEY = "faylitDiscountPopupShown"; // localStorage key
+const DISCOUNT_POPUP_LS_KEY = "faylitDiscountPopupShown";
 
 const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -50,23 +51,19 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
   const [isDiscountPopupOpen, setIsDiscountPopupOpen] = useState(false);
 
   useEffect(() => {
-    // Check localStorage to see if the popup has been shown before
-    if (typeof window !== "undefined") { // Ensure localStorage is available
+    if (typeof window !== "undefined") {
       const popupShown = localStorage.getItem(DISCOUNT_POPUP_LS_KEY);
       if (popupShown !== 'true') {
-        // If not shown, show it after a short delay
         const timer = setTimeout(() => {
           setIsDiscountPopupOpen(true);
-          localStorage.setItem(DISCOUNT_POPUP_LS_KEY, 'true'); // Mark as shown
-        }, 700); // Delay to allow initial render
+          localStorage.setItem(DISCOUNT_POPUP_LS_KEY, 'true');
+        }, 700);
         return () => clearTimeout(timer);
       }
     }
-  }, []); // Empty dependency array ensures this runs only once on mount
+  }, []);
 
-  const handleCloseDiscountPopup = () => {
-    setIsDiscountPopupOpen(false);
-  };
+  const handleCloseDiscountPopup = () => setIsDiscountPopupOpen(false);
 
   const handleCopyDiscountCode = async () => {
     if (!navigator.clipboard) {
@@ -102,44 +99,23 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
     }
   };
 
-
   useEffect(() => {
     const newSrc = buildUrl(initialPath);
-    if (iframeRef.current && iframeRef.current.src !== newSrc) {
-      setIsLoading(true);
-      setIframeSrc(newSrc);
-      setCurrentWebViewPath(initialPath);
-    } else if (!iframeRef.current) {
-      setIsLoading(true);
-      setIframeSrc(newSrc);
-      setCurrentWebViewPath(initialPath);
+    if (iframeSrc !== newSrc) {
+        setIsLoading(true);
+        setIframeSrc(newSrc);
+        setCurrentWebViewPath(initialPath); // Keep currentWebViewPath in sync with what we intend to load
     }
-  }, [initialPath, buildUrl]);
-
-  const handleNavigation = useCallback((path: string) => {
-    const newUrl = buildUrl(path);
-    setCurrentWebViewPath(path); 
-    if (iframeSrc !== newUrl) {
-      setIsLoading(true);
-      setIframeSrc(newUrl); 
-    } else if (iframeRef.current?.contentWindow) {
-      try {
-        if (iframeRef.current.contentWindow.location.href !== newUrl) {
-          iframeRef.current.contentWindow.location.href = newUrl;
-        }
-      } catch (e) {
-         console.warn('FaylitFrame: Could not directly set iframe location due to cross-origin. Falling back to src update.', e);
-        if (iframeRef.current.src && iframeRef.current.src !== newUrl) {
-          setIsLoading(true);
-          iframeRef.current.src = newUrl;
-        }
-      }
-    }
-  }, [iframeSrc, buildUrl, setCurrentWebViewPath]);
+  }, [initialPath, buildUrl, iframeSrc]); // Removed setCurrentWebViewPath from deps, already handled
 
 
   const updateNavState = useCallback(() => {
-    setIsLoading(false);
+    // This function is called after the iframe has loaded.
+    // setIsLoading(false) should have already been called by iframe's onLoad.
+    // If for some reason isLoading is still true, this call will correct it.
+    if (isLoading) {
+      setIsLoading(false);
+    }
 
     let pathFromKnownSrc = '';
     if (iframeRef.current?.src) {
@@ -153,10 +129,10 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
             if (currentSrcUrl.pathname === '/' && !currentSrcUrl.search && !currentSrcUrl.hash) {
                  pathFromKnownSrc = ''; 
             }
-
         } catch (e) {
             console.warn('FaylitFrame: Could not parse iframe src URL for pathFromKnownSrc.', e);
-            const rawPath = iframeRef.current.src.replace(BASE_URL, '').replace(/^\//, '');
+            const src = iframeRef.current?.src || '';
+            const rawPath = src.replace(BASE_URL, '').replace(/^\//, '');
             pathFromKnownSrc = rawPath.split('?')[0] || '';
         }
     }
@@ -170,50 +146,91 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
         }
         setCurrentWebViewPath(actualPath);
       } catch (error) {
-        console.warn('FaylitFrame: Could not read iframe location due to cross-origin restrictions. Falling back to last known src path without UTMs.', error);
+        console.warn('FaylitFrame: Could not read iframe contentWindow.location due to cross-origin restrictions. Falling back to last known src path without UTMs.', error);
         setCurrentWebViewPath(pathFromKnownSrc); 
       }
     } else {
        setCurrentWebViewPath(pathFromKnownSrc);
     }
-  }, [setCurrentWebViewPath]);
+  }, [isLoading, setCurrentWebViewPath]);
 
+
+  const handleNavigation = useCallback((path: string) => {
+    const newUrl = buildUrl(path);
+    setCurrentWebViewPath(path); 
+    setIsLoading(true); // Always set loading true when initiating navigation
+    if (iframeSrc === newUrl) {
+      // If SRC is the same, try to navigate iframe directly (e.g. for hash changes or refresh)
+      if (iframeRef.current?.contentWindow) {
+        try {
+          iframeRef.current.contentWindow.location.href = newUrl;
+          // If successful, onLoad will handle setIsLoading(false) and updateNavState
+        } catch (e) {
+          console.warn('FaylitFrame: Could not directly set iframe location. Reloading via src attribute.', e);
+          // Fallback: Force reload by changing src, even if it's to the same URL.
+          // A key change on iframe might be more robust for this.
+          setIframeSrc(''); // Temporarily change src to ensure reload
+          setTimeout(() => setIframeSrc(newUrl), 0);
+        }
+      } else {
+        // If no contentWindow, just set src (should trigger load)
+        setIframeSrc(newUrl);
+      }
+    } else {
+      // If SRC is different, just set it (should trigger load)
+      setIframeSrc(newUrl);
+    }
+  }, [iframeSrc, buildUrl, setCurrentWebViewPath]);
+
+
+  // Effect to call updateNavState when the iframe's content has loaded
+  // This is separate from setIsLoading, which is handled by the iframe's onLoad prop.
   useEffect(() => {
     const iframe = iframeRef.current;
     if (iframe) {
-      const handleLoad = () => {
-        setTimeout(updateNavState, 150); 
+      const handleIframeLoadEvent = () => {
+        // No need to setIsLoading(false) here, iframe.onLoad does that.
+        // Just update the navigation state.
+        // A small delay can sometimes be beneficial for stability.
+        setTimeout(updateNavState, 50);
       };
-      iframe.addEventListener('load', handleLoad);
-      // Set isLoading to false if the iframe loads quickly or is already cached
-      if (iframe.contentWindow && iframe.contentWindow.document.readyState === 'complete') {
-        setIsLoading(false);
-      }
+
+      iframe.addEventListener('load', handleIframeLoadEvent);
       return () => {
-        iframe.removeEventListener('load', handleLoad);
+        iframe.removeEventListener('load', handleIframeLoadEvent);
       };
     }
-  }, [updateNavState, iframeSrc]); // Added iframeSrc to re-attach listener if src changes
+  }, [updateNavState]); // updateNavState is memoized
 
+  // This effect ensures that if the iframeSrc prop actually changes programmatically,
+  // the iframe HTML element's src attribute is updated.
+  // This might be redundant if React handles the 'src' prop update on the iframe element well.
+  // However, direct manipulation can be more certain.
   useEffect(() => {
     if (iframeRef.current && iframeRef.current.src !== iframeSrc) {
+      // setIsLoading(true); // Already set by handleNavigation or initialPath effect
       iframeRef.current.src = iframeSrc;
     }
   }, [iframeSrc]);
 
-
   return (
     <div className="flex flex-col h-full bg-background text-foreground overflow-hidden">
-      <main className="flex-grow relative pb-16"> {/* Added pb-16 here */}
+      <main className="flex-grow relative pb-16">
         <iframe
+          // Using a key derived from iframeSrc can help ensure the iframe fully reloads
+          // when the src changes, which is often more reliable than just setting .src
+          key={iframeSrc}
           ref={iframeRef}
           src={iframeSrc}
           title="Faylit Store Web View"
           className="w-full h-full border-0"
           sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-downloads allow-modals allow-top-navigation-by-user-activation"
           allowFullScreen
-          loading="eager"
-          onLoad={() => setIsLoading(false)} // Ensure isLoading is set to false on load
+          loading="eager" // Request browser to load iframe content eagerly
+          onLoad={() => {
+            setIsLoading(false); // Primary handler for when iframe content is loaded
+            // updateNavState will be called by the separate 'load' event listener useEffect
+          }}
         />
       </main>
       <BottomNavigation onNavigate={handleNavigation} currentPath={currentWebViewPath} />
@@ -242,3 +259,5 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
 };
 
 export default FaylitFrame;
+
+    
