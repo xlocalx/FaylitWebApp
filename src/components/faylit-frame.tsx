@@ -69,6 +69,17 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
   };
 
   const handleCopyDiscountCode = async () => {
+    if (!navigator.clipboard) {
+      const { id: toastId } = toast({
+        title: "Hata",
+        description: "Panoya kopyalama bu tarayıcıda/ortamda desteklenmiyor.",
+        variant: "destructive",
+      });
+      setTimeout(() => { dismiss(toastId); }, 5000);
+      console.error('Clipboard API not available.');
+      return;
+    }
+
     try {
       await navigator.clipboard.writeText(DISCOUNT_CODE);
       const { id: toastId } = toast({
@@ -84,7 +95,7 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
         description: "Kod kopyalanamadı. Lütfen manuel olarak kopyalayın.",
         variant: "destructive",
       });
-      setTimeout(() => { // Also dismiss error toasts after some time
+      setTimeout(() => { 
         dismiss(toastId);
       }, 5000);
       console.error('Failed to copy discount code: ', err);
@@ -171,14 +182,18 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
     const iframe = iframeRef.current;
     if (iframe) {
       const handleLoad = () => {
-        setTimeout(updateNavState, 150); // A small delay can help ensure all scripts in iframe have run
+        setTimeout(updateNavState, 150); 
       };
       iframe.addEventListener('load', handleLoad);
+      // Set isLoading to false if the iframe loads quickly or is already cached
+      if (iframe.contentWindow && iframe.contentWindow.document.readyState === 'complete') {
+        setIsLoading(false);
+      }
       return () => {
         iframe.removeEventListener('load', handleLoad);
       };
     }
-  }, [updateNavState]);
+  }, [updateNavState, iframeSrc]); // Added iframeSrc to re-attach listener if src changes
 
   useEffect(() => {
     if (iframeRef.current && iframeRef.current.src !== iframeSrc) {
@@ -189,7 +204,7 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
 
   return (
     <div className="flex flex-col h-full bg-background text-foreground overflow-hidden">
-      <main className="flex-grow relative pb-16">
+      <main className="flex-grow relative pb-16"> {/* Added pb-16 here */}
         <iframe
           ref={iframeRef}
           src={iframeSrc}
@@ -198,7 +213,7 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
           sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-downloads allow-modals allow-top-navigation-by-user-activation"
           allowFullScreen
           loading="eager"
-          onLoad={() => setIsLoading(false)}
+          onLoad={() => setIsLoading(false)} // Ensure isLoading is set to false on load
         />
       </main>
       <BottomNavigation onNavigate={handleNavigation} currentPath={currentWebViewPath} />
@@ -227,5 +242,3 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
 };
 
 export default FaylitFrame;
-
-    
