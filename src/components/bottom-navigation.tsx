@@ -3,7 +3,6 @@
 
 import type { FC } from 'react';
 import { Home, ShoppingCart, Percent, Heart } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 interface BottomNavigationProps {
@@ -30,13 +29,19 @@ const BottomNavigation: FC<BottomNavigationProps> = ({ onNavigate, currentPath }
         const isActive = normalizedCurrentPath === normalizedItemPath;
 
         return (
-          <Button
+          <button
+            type="button"
             key={item.label}
-            variant="ghost"
             className={cn(
-              "flex flex-col items-center justify-center h-full flex-1 rounded-none p-1 transition-colors duration-150 ease-in-out focus-visible:ring-0 focus-visible:ring-offset-0",
-              "overflow-hidden", // Added to clip content if it overflows
-              "text-[11px] leading-tight", // Use leading-tight for slightly more vertical space for text
+              // Base structure and sizing for the button element
+              "flex flex-col items-center justify-center h-full flex-1",
+              // Visuals and interaction
+              "rounded-none transition-colors duration-150 ease-in-out",
+              "focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2", // Standard focus for accessibility
+              "overflow-hidden", // Keep this for safety, clips content if it's still too large
+              "px-1 py-2", // Explicit padding: minimal horizontal, reasonable vertical
+              "text-[11px] leading-tight", // Text styling
+              // Conditional styling for active/inactive states
               isActive
                 ? "bg-primary/20 text-primary-foreground font-semibold"
                 : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
@@ -47,7 +52,7 @@ const BottomNavigation: FC<BottomNavigationProps> = ({ onNavigate, currentPath }
           >
             <item.icon className={cn("h-5 w-5 mb-0.5")} />
             {item.label}
-          </Button>
+          </button>
         );
       })}
     </nav>
