@@ -2,7 +2,7 @@
 "use client";
 
 import type { FC } from 'react';
-import { Home, ShoppingCart, Percent } from 'lucide-react';
+import { Home, ShoppingCart, Percent, Heart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
@@ -14,6 +14,7 @@ interface BottomNavigationProps {
 const navItems = [
   { label: 'Faylit', path: '', icon: Home, testId: 'faylit-button' },
   { label: 'Sepet', path: 'cart', icon: ShoppingCart, testId: 'sepet-button' },
+  { label: 'Favorilerim', path: 'wishlist', icon: Heart, testId: 'favorilerim-button' }, // Added new button
   { label: 'İndirim', path: 'indirim', icon: Percent, testId: 'indirim-button' },
 ];
 
@@ -33,15 +34,15 @@ const BottomNavigation: FC<BottomNavigationProps> = ({ onNavigate, currentPath }
             key={item.label}
             variant="ghost"
             className={cn(
-              "flex flex-col items-center justify-center h-full flex-1 rounded-none text-xs p-1 transition-colors duration-150 ease-in-out focus-visible:ring-0 focus-visible:ring-offset-0", // Removed focus ring for cleaner look on mobile nav
+              "flex flex-col items-center justify-center h-full flex-1 rounded-none text-xs p-1 transition-colors duration-150 ease-in-out focus-visible:ring-0 focus-visible:ring-offset-0",
               item.path === 'indirim'
-                ? [ // Special styling for "İndirim" button
+                ? [
                     "bg-gradient-to-r from-red-500 via-red-600 to-red-700",
                     isActive
-                      ? "text-white font-semibold" // Active state for Indirim
-                      : "text-red-200 hover:text-white", // Inactive state for Indirim
+                      ? "text-white font-semibold"
+                      : "text-red-200 hover:text-white",
                   ]
-                : [ // Standard styling for other buttons
+                : [
                     isActive
                       ? "bg-primary/20 text-primary-foreground font-semibold"
                       : "text-muted-foreground hover:text-accent-foreground",
