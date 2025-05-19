@@ -40,7 +40,6 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
       setIframeSrc(newSrc);
       setCurrentWebViewPath(initialPath);
     } else if (!iframeRef.current) {
-      // If iframe isn't mounted yet, ensure we set src and loading state
       setIsLoading(true);
       setIframeSrc(newSrc);
       setCurrentWebViewPath(initialPath);
@@ -49,16 +48,14 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
 
   const handleNavigation = useCallback((path: string) => {
     const newUrl = buildUrl(path);
-    setCurrentWebViewPath(path); // Update internal path immediately for nav UI
+    setCurrentWebViewPath(path);
     if (iframeSrc !== newUrl) {
-      setIsLoading(true); // Set loading state for iframe content change
+      setIsLoading(true);
       setIframeSrc(newUrl);
     } else if (iframeRef.current?.contentWindow) {
-      // If URL is the same, try to navigate within iframe (might be blocked by CORS)
       try {
         iframeRef.current.contentWindow.location.href = newUrl;
       } catch (e) {
-        // If navigation fails (e.g., CORS) and src is different, force src update
         if (iframeRef.current.src && iframeRef.current.src !== newUrl) {
           setIsLoading(true);
           iframeRef.current.src = newUrl;
@@ -69,7 +66,7 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
 
 
   const updateNavState = useCallback(() => {
-    setIsLoading(false); // Iframe content has loaded
+    setIsLoading(false);
 
     let pathFromKnownSrc = '';
     if (iframeRef.current?.src) {
@@ -78,7 +75,6 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
         if (currentSrcUrl.pathname === '/') {
             pathFromKnownSrc = '';
         }
-        // Strip UTM parameters for path comparison
         currentSrcUrl.searchParams.delete('utm_source');
         currentSrcUrl.searchParams.delete('utm_medium');
         currentSrcUrl.searchParams.delete('utm_campaign');
@@ -93,6 +89,11 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
           actualPath = (iframeLocation.search + iframeLocation.hash).replace(/^\//, '');
         }
         setCurrentWebViewPath(actualPath);
+        // Fallback if path seems empty but shouldn't be (e.g. initial load is just "/")
+        if(actualPath === '' && iframeRef.current.src.includes(BASE_URL) && new URL(iframeRef.current.src).pathname !== '/') {
+            setCurrentWebViewPath(pathFromKnownSrc);
+        }
+
       } catch (error) {
         console.warn('FaylitFrame: Could not read iframe location due to cross-origin restrictions. Falling back to last known src path.', error);
         setCurrentWebViewPath(pathFromKnownSrc);
@@ -106,7 +107,6 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
     const iframe = iframeRef.current;
     if (iframe) {
       const handleLoad = () => {
-        // A short delay can sometimes help ensure the iframe's contentWindow is accessible
         setTimeout(updateNavState, 100);
       };
       iframe.addEventListener('load', handleLoad);
@@ -132,7 +132,7 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
           className={`w-full h-full border-0 transition-opacity duration-300 ${isLoading ? 'opacity-50' : 'opacity-100'}`}
           sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-downloads allow-modals allow-top-navigation-by-user-activation"
           allowFullScreen
-          loading="eager" // Load eagerly as it's the primary content
+          loading="eager"
         />
       </main>
       {!isLoading && <BottomNavigation onNavigate={handleNavigation} currentPath={currentWebViewPath} />}
