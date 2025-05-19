@@ -35,9 +35,8 @@ const BottomNavigation: FC<BottomNavigationProps> = ({ onNavigate, currentPath }
             variant="ghost"
             className={cn(
               "flex flex-col items-center justify-center h-full flex-1 rounded-none p-1 transition-colors duration-150 ease-in-out focus-visible:ring-0 focus-visible:ring-offset-0",
-              // Applied a custom font size and a very tight line-height to the button
-              // This will be inherited by the text label.
-              "text-[11px] leading-none", 
+              "overflow-hidden", // Added to clip content if it overflows
+              "text-[11px] leading-tight", // Use leading-tight for slightly more vertical space for text
               isActive
                 ? "bg-primary/20 text-primary-foreground font-semibold"
                 : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
@@ -47,7 +46,6 @@ const BottomNavigation: FC<BottomNavigationProps> = ({ onNavigate, currentPath }
             aria-current={isActive ? "page" : undefined}
           >
             <item.icon className={cn("h-5 w-5 mb-0.5")} />
-            {/* Label is directly rendered, will inherit text-[11px] and leading-none */}
             {item.label}
           </Button>
         );
@@ -57,5 +55,3 @@ const BottomNavigation: FC<BottomNavigationProps> = ({ onNavigate, currentPath }
 };
 
 export default BottomNavigation;
-
-    
