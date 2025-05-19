@@ -40,7 +40,7 @@ const BottomNavigation: FC<BottomNavigationProps> = ({ onNavigate, currentPath }
                     "bg-gradient-to-r from-red-500 via-red-600 to-red-700",
                     isActive
                       ? "text-white font-semibold"
-                      : "text-red-200 hover:text-white",
+                      : "text-white/80 hover:text-white", // Changed from text-red-200
                   ]
                 : [
                     isActive
