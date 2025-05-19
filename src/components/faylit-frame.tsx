@@ -3,7 +3,7 @@
 
 import type { FC } from 'react';
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import BottomNavigation from './bottom-navigation';
+import BottomNavigation from './bottom-navigation'; // Adjusted path
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -42,7 +42,7 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
       urlObject.searchParams.set(key, value);
     }
     const finalUrl = urlObject.toString();
-    console.log('[FaylitFrame] Building URL for iframe:', finalUrl); // Added log
+    console.log('[FaylitFrame] Building URL for iframe:', finalUrl);
     return finalUrl;
   }, []);
 
@@ -104,9 +104,10 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
     setIsLoading(true);
     setIframeSrc(buildUrl(initialPath));
     setCurrentWebViewPath(initialPath);
-    // Update browser history for the shell app
     const newAppPath = initialPath ? `/${initialPath.replace(/^\//, '')}` : '/';
-    window.history.replaceState(null, '', newAppPath);
+    if (typeof window !== "undefined" && window.location.pathname !== newAppPath) {
+      window.history.replaceState(null, '', newAppPath);
+    }
   }, [initialPath, buildUrl]);
 
 
@@ -139,9 +140,8 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
           actualPath = ''; 
         }
         setCurrentWebViewPath(actualPath);
-        // Update browser history for the shell app
         const newAppPath = actualPath ? `/${actualPath.replace(/^\//, '')}` : '/';
-        if (window.location.pathname !== newAppPath) {
+        if (typeof window !== "undefined" && window.location.pathname !== newAppPath) {
           window.history.pushState(null, '', newAppPath);
         }
 
@@ -149,14 +149,14 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
         console.warn('FaylitFrame: Could not read iframe contentWindow.location due to cross-origin restrictions. Falling back to last known src path without UTMs.', error);
         setCurrentWebViewPath(pathFromKnownSrc); 
          const newAppPath = pathFromKnownSrc ? `/${pathFromKnownSrc.replace(/^\//, '')}` : '/';
-         if (window.location.pathname !== newAppPath) {
+         if (typeof window !== "undefined" && window.location.pathname !== newAppPath) {
             window.history.pushState(null, '', newAppPath);
         }
       }
     } else {
        setCurrentWebViewPath(pathFromKnownSrc);
        const newAppPath = pathFromKnownSrc ? `/${pathFromKnownSrc.replace(/^\//, '')}` : '/';
-       if (window.location.pathname !== newAppPath) {
+       if (typeof window !== "undefined" && window.location.pathname !== newAppPath) {
           window.history.pushState(null, '', newAppPath);
       }
     }
@@ -168,17 +168,20 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
     setCurrentWebViewPath(path); 
     setIsLoading(true); 
     setIframeSrc(newUrl);
-    // Update browser history for the shell app
     const newAppPath = path ? `/${path.replace(/^\//, '')}` : '/';
-    window.history.pushState(null, '', newAppPath);
+    if (typeof window !== "undefined") {
+      window.history.pushState(null, '', newAppPath);
+    }
   }, [buildUrl]);
 
   useEffect(() => {
     const iframe = iframeRef.current;
+    const handleIframeLoadEvent = () => {
+      setIsLoading(false); 
+      setTimeout(updateNavState, 50); 
+    };
+
     if (iframe) {
-      const handleIframeLoadEvent = () => {
-        setTimeout(updateNavState, 50);
-      };
       iframe.addEventListener('load', handleIframeLoadEvent);
       return () => {
         if (iframe) {
@@ -186,7 +189,7 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
         }
       };
     }
-  }, [updateNavState, iframeSrc]); // iframeSrc dependency ensures re-attachment if iframe re-mounts
+  }, [updateNavState, iframeSrc]); 
 
   return (
     <div className="flex flex-col h-full bg-background text-foreground overflow-hidden">
@@ -200,9 +203,8 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
           sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-downloads allow-modals allow-top-navigation-by-user-activation"
           allowFullScreen
           loading="eager"
-          onLoad={() => {
-            setIsLoading(false);
-          }}
+          allow="attribution-reporting; browsing-topics;"
+          onLoad={() => setIsLoading(false)} 
         />
       </main>
       <BottomNavigation onNavigate={handleNavigation} currentPath={currentWebViewPath} />
@@ -231,3 +233,5 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
 };
 
 export default FaylitFrame;
+
+    
