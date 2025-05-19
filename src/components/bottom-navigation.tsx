@@ -35,18 +35,9 @@ const BottomNavigation: FC<BottomNavigationProps> = ({ onNavigate, currentPath }
             variant="ghost"
             className={cn(
               "flex flex-col items-center justify-center h-full flex-1 rounded-none text-xs p-1 transition-colors duration-150 ease-in-out focus-visible:ring-0 focus-visible:ring-offset-0",
-              item.path === 'indirim'
-                ? [
-                    "bg-gradient-to-r from-red-500 via-red-600 to-red-700",
-                    isActive
-                      ? "text-white font-semibold"
-                      : "text-white/80 hover:text-white", // Changed from text-red-200
-                  ]
-                : [
-                    isActive
-                      ? "bg-primary/20 text-primary-foreground font-semibold"
-                      : "text-muted-foreground hover:text-accent-foreground",
-                  ]
+              isActive
+                ? "bg-primary/20 text-primary-foreground font-semibold"
+                : "text-muted-foreground hover:text-accent-foreground hover:bg-accent/50"
             )}
             onClick={() => onNavigate(item.path)}
             data-testid={item.testId}
