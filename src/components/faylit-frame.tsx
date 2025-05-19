@@ -24,10 +24,11 @@ interface FaylitFrameProps {
 
 const BASE_URL = "https://faylit.com";
 const DISCOUNT_CODE = "APP10";
+const DISCOUNT_POPUP_LS_KEY = "faylitDiscountPopupShown"; // localStorage key
 
 const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
   const iframeRef = useRef<HTMLIFrameElement>(null);
-  const { toast, dismiss } = useToast(); // Added dismiss here
+  const { toast, dismiss } = useToast();
 
   const buildUrl = useCallback((relativePath: string) => {
     const urlObject = new URL(relativePath, BASE_URL);
@@ -47,40 +48,45 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
   const [isLoading, setIsLoading] = useState(true);
 
   const [isDiscountPopupOpen, setIsDiscountPopupOpen] = useState(false);
-  const [hasDiscountPopupBeenShown, setHasDiscountPopupBeenShown] = useState(false);
 
   useEffect(() => {
-    // Show discount popup once on startup after a short delay
-    if (!hasDiscountPopupBeenShown) {
-      const timer = setTimeout(() => {
-        setIsDiscountPopupOpen(true);
-        setHasDiscountPopupBeenShown(true); // Mark as shown when opening
-      }, 700); // Delay to allow initial render
-      return () => clearTimeout(timer);
+    // Check localStorage to see if the popup has been shown before
+    if (typeof window !== "undefined") { // Ensure localStorage is available
+      const popupShown = localStorage.getItem(DISCOUNT_POPUP_LS_KEY);
+      if (popupShown !== 'true') {
+        // If not shown, show it after a short delay
+        const timer = setTimeout(() => {
+          setIsDiscountPopupOpen(true);
+          localStorage.setItem(DISCOUNT_POPUP_LS_KEY, 'true'); // Mark as shown
+        }, 700); // Delay to allow initial render
+        return () => clearTimeout(timer);
+      }
     }
-  }, [hasDiscountPopupBeenShown]);
+  }, []); // Empty dependency array ensures this runs only once on mount
 
   const handleCloseDiscountPopup = () => {
     setIsDiscountPopupOpen(false);
-    // No need to setHasDiscountPopupBeenShown(true) here, it's set when popup is triggered
   };
 
   const handleCopyDiscountCode = async () => {
     try {
       await navigator.clipboard.writeText(DISCOUNT_CODE);
-      const { id: toastId } = toast({ // Get the ID of the toast
+      const { id: toastId } = toast({
         title: "Kod Kopyalandı!",
         description: `${DISCOUNT_CODE} kodu panonuza kopyalandı.`,
       });
       setTimeout(() => {
-        dismiss(toastId); // Dismiss this specific toast after 4 seconds
+        dismiss(toastId); 
       }, 4000);
     } catch (err) {
-      toast({
+      const { id: toastId } = toast({
         title: "Hata",
         description: "Kod kopyalanamadı. Lütfen manuel olarak kopyalayın.",
         variant: "destructive",
       });
+      setTimeout(() => { // Also dismiss error toasts after some time
+        dismiss(toastId);
+      }, 5000);
       console.error('Failed to copy discount code: ', err);
     }
   };
@@ -101,12 +107,11 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
 
   const handleNavigation = useCallback((path: string) => {
     const newUrl = buildUrl(path);
-    setCurrentWebViewPath(path); // Update current path immediately for nav UI
+    setCurrentWebViewPath(path); 
     if (iframeSrc !== newUrl) {
       setIsLoading(true);
-      setIframeSrc(newUrl); // This will trigger the useEffect below to update iframe.src
+      setIframeSrc(newUrl); 
     } else if (iframeRef.current?.contentWindow) {
-      // If URL is the same, but user might have navigated within iframe to a different hash
       try {
         if (iframeRef.current.contentWindow.location.href !== newUrl) {
           iframeRef.current.contentWindow.location.href = newUrl;
@@ -166,7 +171,7 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
     const iframe = iframeRef.current;
     if (iframe) {
       const handleLoad = () => {
-        setTimeout(updateNavState, 150);
+        setTimeout(updateNavState, 150); // A small delay can help ensure all scripts in iframe have run
       };
       iframe.addEventListener('load', handleLoad);
       return () => {
@@ -193,7 +198,7 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
           sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-downloads allow-modals allow-top-navigation-by-user-activation"
           allowFullScreen
           loading="eager"
-          onLoad={() => setIsLoading(false)} // Keep this to set loading false quickly
+          onLoad={() => setIsLoading(false)}
         />
       </main>
       <BottomNavigation onNavigate={handleNavigation} currentPath={currentWebViewPath} />
@@ -222,3 +227,5 @@ const FaylitFrame: FC<FaylitFrameProps> = ({ initialPath = "" }) => {
 };
 
 export default FaylitFrame;
+
+    
